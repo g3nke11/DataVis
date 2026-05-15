@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataVis — Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand"><a href="/">Data<span>Vis</span></a></div>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/user.html">User</a>
+        <a href="/datasets.html">Datasets</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Explore datasets from your GitHub repository</h1>
+        <p class="lead">
+          DataVis pulls files from a folder in a GitHub repo through a small backend, so CSV and JSON artifacts
+          stay versioned alongside your senior project — without handing the browser raw tokens by default.
+        </p>
+        <div id="github-status" class="status-pill" role="status">Checking server configuration…</div>
+        <div class="btn-row" style="margin-top: 1.35rem">
+          <a class="btn btn-primary" href="/datasets.html">View datasets</a>
+          <a class="btn btn-ghost" href="/user.html">User preferences</a>
+        </div>
+      </section>
+
+      <section class="cards">
+        <article class="card">
+          <h2>Datasets page</h2>
+          <p>
+            Lists every file GitHub exposes in your configured folder. Click a name to preview JSON (pretty-printed)
+            or CSV (scrollable grid).
+          </p>
+        </article>
+        <article class="card">
+          <h2>Backend proxy</h2>
+          <p>
+            <code style="font-size: 0.85rem">server.js</code> calls GitHub's contents API server-side so you can opt
+            in to authentication with environment variables rather than exposing keys in frontend code.
+          </p>
+        </article>
+        <article class="card">
+          <h2>Getting started</h2>
+          <p>
+            Copy <code style="font-size: 0.85rem">.env.example</code> to <code style="font-size: 0.85rem">.env</code>, set repo owner/name and dataset path,
+            optionally add a PAT, run <code style="font-size: 0.85rem">npm install</code> then <code style="font-size: 0.85rem">npm start</code>.
+          </p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>BYU Idaho · Senior project scaffold — wire this UI to whichever analytics you build next.</p>
+    </footer>
+
+    <script type="module" src="/js/home.js"></script>
+  </body>
+</html>

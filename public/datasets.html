@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataVis — Datasets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand"><a href="/">Data<span>Vis</span></a></div>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/user.html">User</a>
+        <a href="/datasets.html" aria-current="page">Datasets</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Datasets</h1>
+        <p class="lead">Files fetched from GitHub (<code>GITHUB_DATA_PATH</code>). Select a row to preview.</p>
+      </section>
+
+      <div id="datasets-error" class="error-banner" role="alert" hidden></div>
+
+      <section class="panel">
+        <h2>Repository listing</h2>
+        <div class="table-scroll" style="max-height: none; border: none">
+          <table class="list-table" id="datasets-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Size</th>
+                <th>SHA (short)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 id="preview-title">Preview</h2>
+        <p id="dataset-meta" class="data-meta">&nbsp;</p>
+        <p id="raw-note" class="empty-state" hidden></p>
+        <pre id="json-preview" class="preview-json code" hidden></pre>
+        <div id="csv-preview" class="table-scroll preview-csv-host" hidden></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>To change folders or repos, update <code>.env</code> and restart Node.</p>
+    </footer>
+
+    <script type="module" src="/js/datasets.js"></script>
+  </body>
+</html>
