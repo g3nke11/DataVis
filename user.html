@@ -20,6 +20,7 @@
         <a href="./">Home</a>
         <a href="user.html" aria-current="page">User</a>
         <a href="datasets.html">Datasets</a>
+        <a href="graph.html">Graph</a>
       </nav>
     </header>
 
@@ -30,10 +31,24 @@
       </section>
 
       <section class="panel">
+        <h2>Active dataset</h2>
+        <p style="margin-top: 0; color: var(--muted); font-size: 0.92rem">
+          Choose a dataset saved in this browser, then build a comparative graph from its columns.
+        </p>
+        <p id="no-datasets-msg" class="empty-state" hidden>
+          No datasets yet. <a href="datasets.html">Upload one on the datasets page</a>.
+        </p>
+        <div id="dataset-list" class="dataset-list" role="radiogroup" aria-label="Stored datasets"></div>
+        <div class="btn-row" style="margin-top: 1.25rem">
+          <a id="graph-link" class="btn btn-primary btn-disabled" href="#" aria-disabled="true">Open graph</a>
+          <a class="btn btn-ghost" href="datasets.html">Manage datasets</a>
+        </div>
+      </section>
+
+      <section class="panel">
         <h2>Preferences (browser only)</h2>
         <p style="margin-top: 0; color: var(--muted); font-size: 0.92rem">
-          There is no account system in this scaffold — settings are saved with <code>localStorage</code> so labeling
-          and notes persist on this device.
+          Display name and notes are stored with <code>localStorage</code> on this device.
         </p>
         <form id="user-form" style="margin-top: 1rem">
           <fieldset>
@@ -46,7 +61,7 @@
           </fieldset>
           <div class="btn-row" style="margin-top: 1rem">
             <button type="submit" class="btn btn-primary">Save preferences</button>
-            <button type="button" class="btn btn-ghost" id="clear-btn">Clear stored data</button>
+            <button type="button" class="btn btn-ghost" id="clear-btn">Clear preferences</button>
           </div>
           <p id="save-msg" class="status-pill ok" style="margin-top: 0.85rem" hidden>Saved locally.</p>
         </form>
@@ -54,9 +69,9 @@
     </main>
 
     <footer class="site-footer">
-      <p><a href="datasets.html">Open datasets →</a></p>
+      <p><a href="datasets.html">Upload datasets →</a></p>
     </footer>
 
-    <script src="js/user.js"></script>
+    <script type="module" src="js/user.js"></script>
   </body>
 </html>

@@ -20,50 +20,43 @@
         <a href="./" aria-current="page">Home</a>
         <a href="user.html">User</a>
         <a href="datasets.html">Datasets</a>
+        <a href="graph.html">Graph</a>
       </nav>
     </header>
 
     <main>
       <section class="hero">
-        <h1>Explore datasets from your GitHub repository</h1>
+        <h1>Explore and compare datasets in your browser</h1>
         <p class="lead">
-          DataVis pulls files from a folder in a GitHub repo through a small backend, so CSV and JSON artifacts
-          stay versioned alongside your senior project — without handing the browser raw tokens by default.
+          Upload CSV or JSON files, keep them in <code>localStorage</code> for short-term work, pick an active dataset on
+          the user page, and build comparative bar charts on the graph page.
         </p>
-        <div id="github-status" class="status-pill" role="status">Checking server configuration…</div>
+        <div id="storage-status" class="status-pill ok" role="status"></div>
         <div class="btn-row" style="margin-top: 1.35rem">
-          <a class="btn btn-primary" href="datasets.html">View datasets</a>
-          <a class="btn btn-ghost" href="user.html">User preferences</a>
+          <a class="btn btn-primary" href="datasets.html">Upload datasets</a>
+          <a class="btn btn-ghost" href="user.html">User &amp; selection</a>
+          <a class="btn btn-ghost" href="graph.html">Graph</a>
         </div>
       </section>
 
       <section class="cards">
         <article class="card">
-          <h2>Datasets page</h2>
-          <p>
-            Lists every file GitHub exposes in your configured folder. Click a name to preview JSON (pretty-printed)
-            or CSV (scrollable grid).
-          </p>
+          <h2>Datasets</h2>
+          <p>Upload CSV or JSON, preview tables, and manage files stored locally in this browser.</p>
         </article>
         <article class="card">
-          <h2>Backend proxy</h2>
-          <p>
-            <code style="font-size: 0.85rem">server.js</code> calls GitHub's contents API server-side so you can opt
-            in to authentication with environment variables rather than exposing keys in frontend code.
-          </p>
+          <h2>User</h2>
+          <p>Save a display name, choose which stored dataset is active, and jump to the graph builder.</p>
         </article>
         <article class="card">
-          <h2>Getting started</h2>
-          <p>
-            Copy <code style="font-size: 0.85rem">.env.example</code> to <code style="font-size: 0.85rem">.env</code>, set repo owner/name and dataset path,
-            optionally add a PAT, run <code style="font-size: 0.85rem">npm install</code> then <code style="font-size: 0.85rem">npm start</code>.
-          </p>
+          <h2>Graph</h2>
+          <p>Select a label column and numeric columns to compare side-by-side in a grouped bar chart.</p>
         </article>
       </section>
     </main>
 
     <footer class="site-footer">
-      <p>BYU Idaho · Senior project scaffold — wire this UI to whichever analytics you build next.</p>
+      <p>BYU Idaho · Senior project — datasets stay on this device until you clear browser storage.</p>
     </footer>
 
     <script type="module" src="js/home.js"></script>

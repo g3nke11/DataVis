@@ -1,29 +1,10 @@
-import { fetchConfig } from './api.js';
+import { listStoredDatasets } from './storage.js';
 
-function setGithubStatus(cfg) {
-  const el = document.getElementById('github-status');
-  if (!el) return;
-
-  const ready = !!(cfg.owner && cfg.repo);
-  el.classList.remove('ok', 'warn', 'err');
-
-  if (ready) {
-    el.classList.add('ok');
-    el.textContent = `GitHub repo: ${cfg.owner}/${cfg.repo} · path: ${cfg.dataPath}`;
-    if (!cfg.tokenConfigured) {
-      el.textContent +=
-        ' · unauthenticated requests (fine for small public repos; add GITHUB_TOKEN for higher limits)';
-    }
-  } else {
-    el.classList.add('warn');
-    el.textContent = 'GitHub repo not configured — copy .env.example to .env and set owner/repo.';
-  }
+const el = document.getElementById('storage-status');
+if (el) {
+  const count = listStoredDatasets().length;
+  el.textContent =
+    count === 0
+      ? 'No datasets saved yet — upload on the datasets page.'
+      : `${count} dataset${count === 1 ? '' : 's'} in browser storage`;
 }
-
-fetchConfig().then(setGithubStatus).catch(() => {
-  const el = document.getElementById('github-status');
-  if (el) {
-    el.classList.add('err');
-    el.textContent = 'Could not reach the server API.';
-  }
-});

@@ -1,66 +1,47 @@
-import { fetchConfig, listDatasets, fetchDatasetFile } from './api.js';
+import {
+  listStoredDatasets,
+  getStoredDataset,
+  saveStoredDataset,
+  deleteStoredDataset,
+  datasetToTable,
+  formatBytes,
+} from './storage.js';
 
-const tableBody = document.querySelector('#datasets-table tbody');
+const tableBody = document.querySelector('#local-datasets-table tbody');
 const errorBanner = document.getElementById('datasets-error');
+const successBanner = document.getElementById('datasets-success');
 const metaEl = document.getElementById('dataset-meta');
 const previewTitle = document.getElementById('preview-title');
 const jsonPre = document.getElementById('json-preview');
 const csvWrap = document.getElementById('csv-preview');
 const rawNote = document.getElementById('raw-note');
+const uploadForm = document.getElementById('upload-form');
+const fileInput = document.getElementById('dataset-file');
 
 function showError(msg) {
   if (!errorBanner) return;
   errorBanner.textContent = msg;
   errorBanner.hidden = false;
+  if (successBanner) successBanner.hidden = true;
 }
 
-function clearError() {
+function showSuccess(msg) {
+  if (!successBanner) return;
+  successBanner.textContent = msg;
+  successBanner.hidden = false;
   if (errorBanner) errorBanner.hidden = true;
 }
 
-function parseCsv(text) {
-  const lines = [];
-  let row = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const c = text[i];
-    const next = text[i + 1];
-    if (inQuotes) {
-      if (c === '"' && next === '"') {
-        field += '"';
-        i += 1;
-      } else if (c === '"') {
-        inQuotes = false;
-      } else {
-        field += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ',') {
-      row.push(field);
-      field = '';
-    } else if (c === '\r') {
-      // ignore
-    } else if (c === '\n') {
-      row.push(field);
-      lines.push(row);
-      row = [];
-      field = '';
-    } else {
-      field += c;
-    }
-  }
-  row.push(field);
-  if (field.length || row.length > 1) lines.push(row);
-  return lines;
+function clearBanners() {
+  if (errorBanner) errorBanner.hidden = true;
+  if (successBanner) successBanner.hidden = true;
 }
 
-function renderCsv(rows) {
+function renderCsvTable(rows) {
   if (!csvWrap) return;
   csvWrap.innerHTML = '';
   if (!rows.length) {
-    csvWrap.textContent = 'Empty CSV.';
+    csvWrap.textContent = 'Empty table.';
     return;
   }
   const tbl = document.createElement('table');
@@ -75,9 +56,10 @@ function renderCsv(rows) {
   thead.appendChild(trHead);
   tbl.appendChild(thead);
   const tbody = document.createElement('tbody');
+  const headers = rows[0];
   rows.slice(1).forEach((line) => {
     const tr = document.createElement('tr');
-    rows[0].forEach((_c, idx) => {
+    headers.forEach((_c, idx) => {
       const td = document.createElement('td');
       td.textContent = line[idx] ?? '';
       tr.appendChild(td);
@@ -95,7 +77,7 @@ function renderPreview(dataset) {
 
   previewTitle.textContent = name;
   if (metaEl) {
-    metaEl.textContent = `${dataset.mime} · ${dataset.path}`;
+    metaEl.textContent = `${dataset.columns?.length ?? 0} columns · ${dataset.rowCount ?? 0} rows · ${formatBytes(dataset.text.length)}`;
   }
 
   jsonPre.hidden = true;
@@ -110,7 +92,7 @@ function renderPreview(dataset) {
       jsonPre.hidden = false;
     } catch {
       rawNote.hidden = false;
-      rawNote.textContent = 'File has a .json extension but is not valid JSON; showing plain text.';
+      rawNote.textContent = 'Invalid JSON; showing raw text.';
       jsonPre.textContent = dataset.text;
       jsonPre.hidden = false;
     }
@@ -118,85 +100,104 @@ function renderPreview(dataset) {
   }
 
   if (lower.endsWith('.csv')) {
+    const table = datasetToTable(dataset);
     csvWrap.hidden = false;
-    renderCsv(parseCsv(dataset.text.trimEnd()));
+    renderCsvTable([table.headers, ...table.rows]);
     return;
   }
 
   rawNote.hidden = false;
-  rawNote.textContent = 'Showing raw text (.csv and .json get structured previews).';
+  rawNote.textContent = 'Raw text preview.';
   jsonPre.textContent = dataset.text;
   jsonPre.hidden = false;
 }
 
-async function loadList() {
-  clearError();
+function renderLocalList() {
+  clearBanners();
   if (!tableBody) return;
   tableBody.innerHTML = '';
-  let cfg;
-  try {
-    cfg = await fetchConfig();
-  } catch (e) {
-    showError(e.message || String(e));
-    return;
-  }
-  if (!(cfg.owner && cfg.repo)) {
-    showError('Server is missing GITHUB_OWNER / GITHUB_REPO. See README and .env.example.');
-    return;
-  }
-  let data;
-  try {
-    data = await listDatasets();
-  } catch (e) {
-    showError(e.message || String(e));
-    return;
-  }
-  if (!data.items?.length) {
+  const items = listStoredDatasets();
+
+  if (!items.length) {
     const row = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 3;
-    td.innerHTML =
-      `<p class="empty-state">No files in folder <strong>${escapeHtml(cfg.dataPath)}</strong>.</p>`;
+    td.colSpan = 4;
+    td.innerHTML = '<p class="empty-state">No datasets yet. Upload a CSV or JSON file above.</p>';
     row.appendChild(td);
     tableBody.appendChild(row);
     return;
   }
-  data.items.forEach((item) => {
+
+  items.forEach((item) => {
     const tr = document.createElement('tr');
     const nameTd = document.createElement('td');
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-ghost';
     btn.textContent = item.name;
-    btn.addEventListener('click', async () => {
-      clearError();
-      try {
-        const full = await fetchDatasetFile(item.path);
-        renderPreview(full);
-      } catch (e) {
-        showError(e.message || String(e));
-      }
+    btn.addEventListener('click', () => {
+      clearBanners();
+      renderPreview(getStoredDataset(item.id));
     });
     nameTd.appendChild(btn);
     tr.appendChild(nameTd);
-    const sizeTd = document.createElement('td');
-    sizeTd.textContent = formatBytes(item.size);
-    tr.appendChild(sizeTd);
-    const shaTd = document.createElement('td');
-    shaTd.textContent = item.sha?.slice(0, 7) ?? '';
-    tr.appendChild(shaTd);
+
+    const colsTd = document.createElement('td');
+    colsTd.textContent = String(item.columns?.length ?? 0);
+    tr.appendChild(colsTd);
+
+    const rowsTd = document.createElement('td');
+    rowsTd.textContent = String(item.rowCount ?? 0);
+    tr.appendChild(rowsTd);
+
+    const actionsTd = document.createElement('td');
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-ghost btn-danger-text';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => {
+      if (!confirm(`Delete "${item.name}" from this browser?`)) return;
+      deleteStoredDataset(item.id);
+      renderLocalList();
+      previewTitle.textContent = 'Preview';
+      if (metaEl) metaEl.textContent = '\u00a0';
+      jsonPre.hidden = true;
+      csvWrap.hidden = true;
+      rawNote.hidden = true;
+    });
+    actionsTd.appendChild(delBtn);
+    tr.appendChild(actionsTd);
     tableBody.appendChild(tr);
   });
 }
 
-function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+uploadForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearBanners();
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    showError('Choose a CSV or JSON file to upload.');
+    return;
+  }
+  const lower = file.name.toLowerCase();
+  if (!lower.endsWith('.csv') && !lower.endsWith('.json')) {
+    showError('Only .csv and .json files are supported.');
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    showError('File is too large for browser storage (max ~4 MB).');
+    return;
+  }
+  try {
+    const text = await file.text();
+    const saved = saveStoredDataset({ name: file.name, text, mime: file.type });
+    showSuccess(`Saved "${saved.name}" locally (${saved.rowCount} rows).`);
+    if (fileInput) fileInput.value = '';
+    renderLocalList();
+    renderPreview(saved);
+  } catch (err) {
+    showError(err.message || String(err));
+  }
+});
 
-function formatBytes(n) {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-loadList();
+renderLocalList();

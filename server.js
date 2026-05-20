@@ -74,6 +74,10 @@ app.get('/datasets.html', (_req, res) => {
   res.sendFile(path.join(webRoot, 'datasets.html'));
 });
 
+app.get('/graph.html', (_req, res) => {
+  res.sendFile(path.join(webRoot, 'graph.html'));
+});
+
 /** Old layout used public/ — keep bookmarks working after deploy */
 app.get(/^\/public\/?(.*)$/, (req, res) => {
   const rest = req.params[0] || '';
