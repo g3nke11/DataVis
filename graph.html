@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataVis — Graph</title>
+    <script src="js/site-base.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand"><a href="./">Data<span>Vis</span></a></div>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="./">Home</a>
+        <a href="user.html">User</a>
+        <a href="datasets.html">Datasets</a>
+        <a href="graph.html" aria-current="page">Graph</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Comparative graph</h1>
+        <p class="lead">Grouped bar chart from your active dataset — pick a label column and numeric columns to compare.</p>
+      </section>
+
+      <section id="graph-empty" class="panel">
+        <p class="empty-state">
+          No dataset selected. <a href="user.html">Choose one on the user page</a> or
+          <a href="datasets.html">upload a dataset</a> first.
+        </p>
+      </section>
+
+      <div id="chart-panel" hidden>
+        <section class="panel">
+          <h2 id="graph-dataset-name">Dataset</h2>
+          <div class="graph-controls">
+            <fieldset>
+              <label for="label-column">Label column (categories)</label>
+              <select id="label-column"></select>
+            </fieldset>
+            <fieldset>
+              <span class="field-label">Compare columns (numeric)</span>
+              <div id="value-columns" class="value-columns"></div>
+            </fieldset>
+          </div>
+          <div class="btn-row" style="margin-top: 1rem">
+            <button type="button" class="btn btn-primary" id="render-chart">Update chart</button>
+            <a class="btn btn-ghost" href="user.html">Change dataset</a>
+          </div>
+        </section>
+
+        <section class="panel chart-panel">
+          <canvas id="chart-canvas" class="chart-canvas" width="640" height="360" role="img" aria-label="Comparative bar chart"></canvas>
+          <p id="chart-meta" class="data-meta" style="margin-top: 1rem"></p>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <p>Charts use the first 24 rows of the selected dataset.</p>
+    </footer>
+
+    <script type="module" src="js/graph.js"></script>
+  </body>
+</html>
