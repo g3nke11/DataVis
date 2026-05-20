@@ -57,13 +57,27 @@ async function ghFetch(apiPath, res) {
   return body;
 }
 
-const publicDir = path.join(__dirname, 'public');
+const webRoot = __dirname;
 
-app.use(express.static(publicDir));
-app.use('/public', express.static(publicDir));
+app.use('/css', express.static(path.join(webRoot, 'css')));
+app.use('/js', express.static(path.join(webRoot, 'js')));
 
 app.get(['/', '/index.html'], (_req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(webRoot, 'index.html'));
+});
+
+app.get('/user.html', (_req, res) => {
+  res.sendFile(path.join(webRoot, 'user.html'));
+});
+
+app.get('/datasets.html', (_req, res) => {
+  res.sendFile(path.join(webRoot, 'datasets.html'));
+});
+
+/** Old layout used public/ — keep bookmarks working after deploy */
+app.get(/^\/public\/?(.*)$/, (req, res) => {
+  const rest = req.params[0] || '';
+  res.redirect(301, `/${rest}`);
 });
 
 app.get('/api/config', (_req, res) => {

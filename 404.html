@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DataVis</title>
+    <script>
+      (function () {
+        var parts = location.pathname.split('/').filter(Boolean);
+        var base = parts.length ? '/' + parts[0] + '/' : '/';
+        location.replace(base + location.search + location.hash);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to <a href="./">DataVis home</a>…</p>
+  </body>
+</html>

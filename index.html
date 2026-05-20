@@ -4,21 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DataVis — Home</title>
+    <script src="js/site-base.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="public/css/styles.css" />
+    <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
     <header class="site-header">
-      <div class="brand"><a href="index.html">Data<span>Vis</span></a></div>
+      <div class="brand"><a href="./">Data<span>Vis</span></a></div>
       <nav class="site-nav" aria-label="Primary">
-        <a href="index.html" aria-current="page">Home</a>
-        <a href="public/user.html">User</a>
-        <a href="public/datasets.html">Datasets</a>
+        <a href="./" aria-current="page">Home</a>
+        <a href="user.html">User</a>
+        <a href="datasets.html">Datasets</a>
       </nav>
     </header>
 
@@ -31,8 +32,8 @@
         </p>
         <div id="github-status" class="status-pill" role="status">Checking server configuration…</div>
         <div class="btn-row" style="margin-top: 1.35rem">
-          <a class="btn btn-primary" href="public/datasets.html">View datasets</a>
-          <a class="btn btn-ghost" href="public/user.html">User preferences</a>
+          <a class="btn btn-primary" href="datasets.html">View datasets</a>
+          <a class="btn btn-ghost" href="user.html">User preferences</a>
         </div>
       </section>
 
@@ -65,6 +66,6 @@
       <p>BYU Idaho · Senior project scaffold — wire this UI to whichever analytics you build next.</p>
     </footer>
 
-    <script type="module" src="public/js/home.js"></script>
+    <script type="module" src="js/home.js"></script>
   </body>
 </html>

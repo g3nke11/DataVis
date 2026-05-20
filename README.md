@@ -2,6 +2,10 @@
 
 Web scaffold for browsing datasets stored in a **GitHub repository folder**. Includes a **home** page, **user** preferences (browser `localStorage`), and a **datasets** explorer that loads files through a small Node backend (no GitHub secrets in the browser).
 
+**Live site (GitHub Pages):** [https://g3nke11.github.io/DataVis/](https://g3nke11.github.io/DataVis/)
+
+Use that URL (not the GitHub repo page) when linking to the app. The repo page at [github.com/g3nke11/DataVis](https://github.com/g3nke11/DataVis) only shows this README.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+
@@ -20,17 +24,18 @@ npm install
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — Pages: `/` (home), `/user.html` or `/public/user.html`, `/datasets.html` or `/public/datasets.html`.
+Open [http://localhost:3000](http://localhost:3000) — Pages: `/`, `/user.html`, `/datasets.html`.
 
-For **GitHub Pages**, the site root serves `index.html`; other pages and assets live under `public/`.
+Dataset API calls require the Node server; GitHub Pages serves the static UI only.
 
 ## Project layout
 
 | Path | Role |
 |------|------|
 | `server.js` | Express app; `/api/config`, `/api/datasets`, `/api/datasets/raw` |
-| `index.html` | Home (repo root for GitHub Pages) |
-| `public/user.html` | User / preferences UI |
-| `public/datasets.html` | Listing + previews |
-| `public/css/styles.css` | Shared styles |
-| `public/js/*.js` | API helper + page scripts |
+| `index.html` | Home (GitHub Pages entry) |
+| `user.html` | User / preferences UI |
+| `datasets.html` | Listing + previews |
+| `css/styles.css` | Shared styles |
+| `js/*.js` | API helper + page scripts |
+| `.nojekyll` | Disables Jekyll so GitHub Pages serves static files as-is |
