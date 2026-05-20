@@ -20,14 +20,16 @@ npm install
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — Pages: `/` (home), `/user.html`, `/datasets.html`.
+Open [http://localhost:3000](http://localhost:3000) — Pages: `/` (home), `/user.html` or `/public/user.html`, `/datasets.html` or `/public/datasets.html`.
+
+For **GitHub Pages**, the site root serves `index.html`; other pages and assets live under `public/`.
 
 ## Project layout
 
 | Path | Role |
 |------|------|
 | `server.js` | Express app; `/api/config`, `/api/datasets`, `/api/datasets/raw` |
-| `public/index.html` | Home |
+| `index.html` | Home (repo root for GitHub Pages) |
 | `public/user.html` | User / preferences UI |
 | `public/datasets.html` | Listing + previews |
 | `public/css/styles.css` | Shared styles |

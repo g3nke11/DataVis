@@ -57,7 +57,14 @@ async function ghFetch(apiPath, res) {
   return body;
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+const publicDir = path.join(__dirname, 'public');
+
+app.use(express.static(publicDir));
+app.use('/public', express.static(publicDir));
+
+app.get(['/', '/index.html'], (_req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.get('/api/config', (_req, res) => {
   res.json({
