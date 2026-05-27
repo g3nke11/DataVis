@@ -492,6 +492,17 @@ select:focus {
   margin-top: 1rem;
 }
 
+.graph-controls .span-full {
+  grid-column: 1 / -1;
+}
+
+.chart-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .value-columns {
   display: flex;
   flex-direction: column;

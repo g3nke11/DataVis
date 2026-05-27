@@ -8,7 +8,7 @@ Web app for uploading CSV/JSON datasets to **browser `localStorage`**, selecting
 
 1. **Datasets** — Upload `.csv` or `.json` (stored locally, ~4 MB max per file).
 2. **User** — Pick the active dataset and save display preferences.
-3. **Graph** — Choose a label column and numeric columns; view a grouped bar chart (first 24 rows).
+3. **Graph** — Bar, line, scatter, histogram, pie, or heatmap; pick columns and optionally color by a category (up to 200 rows).
 
 ## Run locally (optional API)
 

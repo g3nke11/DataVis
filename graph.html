@@ -26,8 +26,10 @@
 
     <main>
       <section class="hero">
-        <h1>Comparative graph</h1>
-        <p class="lead">Grouped bar chart from your active dataset — pick a label column and numeric columns to compare.</p>
+        <h1>Graph builder</h1>
+        <p class="lead">
+          Choose a chart type, pick columns from your active dataset, and optionally color marks by a category column.
+        </p>
       </section>
 
       <section id="graph-empty" class="panel">
@@ -41,13 +43,28 @@
         <section class="panel">
           <h2 id="graph-dataset-name">Dataset</h2>
           <div class="graph-controls">
-            <fieldset>
-              <label for="label-column">Label column (categories)</label>
+            <fieldset class="span-full">
+              <label for="chart-type">Chart type</label>
+              <select id="chart-type"></select>
+              <p id="chart-hint" class="chart-hint"></p>
+            </fieldset>
+            <fieldset id="field-label">
+              <label id="label-column-title" for="label-column">Label column</label>
               <select id="label-column"></select>
             </fieldset>
-            <fieldset>
-              <span class="field-label">Compare columns (numeric)</span>
+            <fieldset id="field-y-axis" hidden>
+              <label id="y-column-title" for="y-column">Y column</label>
+              <select id="y-column"></select>
+            </fieldset>
+            <fieldset id="field-values">
+              <span class="field-label" id="value-columns-title">Value columns</span>
               <div id="value-columns" class="value-columns"></div>
+            </fieldset>
+            <fieldset id="field-color">
+              <label for="color-column">Color by (optional)</label>
+              <select id="color-column">
+                <option value="">None</option>
+              </select>
             </fieldset>
           </div>
           <div class="btn-row" style="margin-top: 1rem">
@@ -57,14 +74,14 @@
         </section>
 
         <section class="panel chart-panel">
-          <canvas id="chart-canvas" class="chart-canvas" width="640" height="360" role="img" aria-label="Comparative bar chart"></canvas>
+          <canvas id="chart-canvas" class="chart-canvas" width="640" height="360" role="img" aria-label="Data visualization chart"></canvas>
           <p id="chart-meta" class="data-meta" style="margin-top: 1rem"></p>
         </section>
       </div>
     </main>
 
     <footer class="site-footer">
-      <p>Charts use the first 24 rows of the selected dataset.</p>
+      <p>Charts use up to 200 rows from the selected dataset.</p>
     </footer>
 
     <script type="module" src="js/graph.js"></script>
