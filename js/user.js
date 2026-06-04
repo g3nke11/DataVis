@@ -7,11 +7,18 @@ import {
   setActiveDatasetId,
   getActiveDatasetId,
   formatBytes,
+  datasetToTable,
 } from './storage.js';
+import {
+  computeColumnSummaries,
+  SUMMARY_METRIC_KEYS,
+  NA,
+} from './column-stats.js';
 
 const datasetListEl = document.getElementById('dataset-list');
 const graphLink = document.getElementById('graph-link');
 const noDatasetsMsg = document.getElementById('no-datasets-msg');
+const statsHint = document.getElementById('stats-hint');
 
 function renderDatasetPicker() {
   if (!datasetListEl) return;
@@ -21,6 +28,7 @@ function renderDatasetPicker() {
   if (!datasets.length) {
     datasetListEl.innerHTML = '';
     if (noDatasetsMsg) noDatasetsMsg.hidden = false;
+    if (statsHint) statsHint.hidden = true;
     if (graphLink) {
       graphLink.classList.add('btn-disabled');
       graphLink.setAttribute('aria-disabled', 'true');
@@ -30,9 +38,13 @@ function renderDatasetPicker() {
   }
 
   if (noDatasetsMsg) noDatasetsMsg.hidden = true;
+  if (statsHint) statsHint.hidden = false;
   datasetListEl.innerHTML = '';
 
   datasets.forEach((ds) => {
+    const card = document.createElement('div');
+    card.className = 'dataset-card';
+
     const label = document.createElement('label');
     label.className = 'dataset-option';
 
@@ -53,7 +65,43 @@ function renderDatasetPicker() {
 
     label.appendChild(radio);
     label.appendChild(info);
-    datasetListEl.appendChild(label);
+    card.appendChild(label);
+
+    const actions = document.createElement('div');
+    actions.className = 'dataset-card-actions';
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'btn btn-ghost btn-sm';
+    toggleBtn.textContent = 'View column summary';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.setAttribute('aria-controls', `stats-${ds.id}`);
+
+    const statsWrap = document.createElement('div');
+    statsWrap.className = 'dataset-stats-wrap';
+    statsWrap.id = `stats-${ds.id}`;
+    statsWrap.hidden = true;
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const open = statsWrap.hidden;
+      if (open) {
+        statsWrap.innerHTML = buildStatsPanel(ds);
+        statsWrap.hidden = false;
+        toggleBtn.textContent = 'Hide column summary';
+        toggleBtn.setAttribute('aria-expanded', 'true');
+      } else {
+        statsWrap.hidden = true;
+        statsWrap.innerHTML = '';
+        toggleBtn.textContent = 'View column summary';
+        toggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    actions.appendChild(toggleBtn);
+    card.appendChild(actions);
+    card.appendChild(statsWrap);
+    datasetListEl.appendChild(card);
   });
 
   if (!activeId && datasets[0]) {
@@ -63,6 +111,74 @@ function renderDatasetPicker() {
   }
 
   updateGraphLink();
+}
+
+function buildStatsPanel(ds) {
+  const full = getStoredDataset(ds.id);
+  if (!full) {
+    return '<p class="empty-state">Dataset not found.</p>';
+  }
+
+  let table;
+  try {
+    table = datasetToTable(full);
+  } catch {
+    return '<p class="empty-state">Could not parse dataset.</p>';
+  }
+
+  if (!table.headers.length) {
+    return '<p class="empty-state">No columns in this dataset.</p>';
+  }
+
+  const summaries = computeColumnSummaries(table.headers, table.rows);
+  const scroll = document.createElement('div');
+  scroll.className = 'table-scroll';
+
+  const tbl = document.createElement('table');
+  tbl.className = 'list-table stats-summary-table';
+  tbl.setAttribute('aria-label', `Column summary for ${ds.name}`);
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  headRow.innerHTML = '<th scope="col">Metric</th>';
+  summaries.forEach((col) => {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = col.column;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  tbl.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  SUMMARY_METRIC_KEYS.forEach((metricKey) => {
+    const hasValue = summaries.some((col) => {
+      const v = col.metrics[metricKey];
+      return v != null && v !== NA;
+    });
+    if (!hasValue) return;
+
+    const tr = document.createElement('tr');
+    const metricTh = document.createElement('th');
+    metricTh.scope = 'row';
+    metricTh.textContent = metricKey;
+    tr.appendChild(metricTh);
+
+    summaries.forEach((col) => {
+      const td = document.createElement('td');
+      const val = col.metrics[metricKey] ?? NA;
+      td.textContent = val;
+      if (val === NA) td.classList.add('metric-na');
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  scroll.appendChild(tbl);
+
+  const host = document.createElement('div');
+  host.appendChild(scroll);
+  return host.innerHTML;
 }
 
 function updateGraphLink() {

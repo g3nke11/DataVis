@@ -475,6 +475,56 @@ select:focus {
   font-size: 0.82rem;
 }
 
+.dataset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dataset-card-actions {
+  padding-left: 1.85rem;
+}
+
+.dataset-stats-wrap {
+  margin-left: 1.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.dataset-stats-wrap[hidden] {
+  display: none;
+}
+
+.stats-summary-table {
+  font-size: 0.8rem;
+}
+
+.stats-summary-table th,
+.stats-summary-table td {
+  padding: 0.45rem 0.5rem;
+  vertical-align: top;
+}
+
+.stats-summary-table .col-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stats-summary-table .metric-na {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.stats-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+}
+
 .btn-disabled {
   pointer-events: none;
   opacity: 0.45;
