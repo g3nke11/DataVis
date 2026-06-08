@@ -66,6 +66,16 @@
                 <option value="">None</option>
               </select>
             </fieldset>
+            <fieldset id="field-range" class="span-full range-filters">
+              <span class="field-label">Data range</span>
+              <p id="range-hint" class="chart-hint">
+                Limit which rows appear in the chart. Controls adapt to each selected column (numeric min/max, date range, or category picks).
+              </p>
+              <div id="range-controls" class="range-controls"></div>
+              <div class="btn-row" style="margin-top: 0.65rem">
+                <button type="button" class="btn btn-ghost btn-sm" id="reset-filters">Reset range</button>
+              </div>
+            </fieldset>
           </div>
           <div class="btn-row" style="margin-top: 1rem">
             <button type="button" class="btn btn-primary" id="render-chart">Update chart</button>

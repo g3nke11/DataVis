@@ -3,17 +3,25 @@
  */
 
 export const PALETTE = [
-  '#3b82f6',
-  '#22c55e',
-  '#f59e0b',
-  '#a855f7',
-  '#ec4899',
-  '#14b8a6',
-  '#ef4444',
-  '#84cc16',
-  '#06b6d4',
-  '#eab308',
+  '#3a9b7a',
+  '#d4845f',
+  '#6b8cce',
+  '#c9a227',
+  '#b56576',
+  '#5b8a72',
+  '#e09f3e',
+  '#7b6bae',
+  '#4a9b8e',
+  '#c77d6a',
 ];
+
+export const CHART_THEME = {
+  bg: '#fffcf7',
+  grid: '#e5ddd0',
+  axisText: '#7a6f5e',
+  legendText: '#3d3428',
+  errorText: '#7a6f5e',
+};
 
 export const MAX_ROWS = 200;
 
@@ -25,7 +33,8 @@ export function setupCanvas(canvas) {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = CHART_THEME.bg;
+  ctx.fillRect(0, 0, w, h);
   return { ctx, w, h, dpr };
 }
 
@@ -46,8 +55,8 @@ function colorForRow(row, colorIdx, colorMap, fallback) {
 }
 
 function drawGrid(ctx, pad, plotW, plotH, maxVal) {
-  ctx.strokeStyle = '#2d3748';
-  ctx.fillStyle = '#9aa5b8';
+  ctx.strokeStyle = CHART_THEME.grid;
+  ctx.fillStyle = CHART_THEME.axisText;
   ctx.font = '11px DM Sans, system-ui, sans-serif';
   for (let t = 0; t <= 4; t += 1) {
     const y = pad.top + plotH - (plotH * t) / 4;
@@ -62,7 +71,7 @@ function drawGrid(ctx, pad, plotW, plotH, maxVal) {
 
 function drawRotatedLabels(ctx, pad, plotW, plotH, labels, dpr) {
   ctx.save();
-  ctx.fillStyle = '#9aa5b8';
+  ctx.fillStyle = CHART_THEME.axisText;
   ctx.textAlign = 'right';
   const groupW = plotW / Math.max(labels.length, 1);
   labels.forEach((label, gi) => {
@@ -80,7 +89,7 @@ function drawLegend(ctx, items, x = 8, y = 8) {
     const lx = x + i * 118;
     ctx.fillStyle = item.color;
     ctx.fillRect(lx, y, 10, 10);
-    ctx.fillStyle = '#e8edf5';
+    ctx.fillStyle = CHART_THEME.legendText;
     ctx.font = '11px DM Sans, system-ui, sans-serif';
     ctx.fillText(item.label.slice(0, 16), lx + 14, y + 9);
   });
@@ -238,7 +247,7 @@ export function drawScatterChart(canvas, { table, xIdx, yIdx, colorIdx, rows }) 
 
   drawGrid(ctx, pad, plotW, plotH, maxY);
 
-  ctx.fillStyle = '#9aa5b8';
+  ctx.fillStyle = CHART_THEME.axisText;
   ctx.fillText(table.headers[xIdx], pad.left + plotW / 2 - 20, h - 12);
   ctx.save();
   ctx.translate(14, pad.top + plotH / 2);
@@ -444,7 +453,7 @@ export function drawHeatmap(canvas, { table, xIdx, yIdx, valueCol, rows }) {
     });
   });
 
-  ctx.fillStyle = '#9aa5b8';
+  ctx.fillStyle = CHART_THEME.axisText;
   ctx.font = '10px DM Sans, system-ui, sans-serif';
   xCats.forEach((x, xi) => {
     const tx = pad.left + xi * cellW + cellW / 2;
@@ -458,17 +467,17 @@ export function drawHeatmap(canvas, { table, xIdx, yIdx, valueCol, rows }) {
     ctx.fillText(y.slice(0, 14), 4, pad.top + yi * cellH + cellH / 2 + 4);
   });
 
-  ctx.fillStyle = '#e8edf5';
+  ctx.fillStyle = CHART_THEME.legendText;
   ctx.fillText(`${table.headers[valueCol.colIdx]}: ${min.toFixed(2)} → ${max.toFixed(2)}`, pad.left, 12);
 
   return `Heatmap: ${table.headers[xIdx]} × ${table.headers[yIdx]}, cell value = ${valueCol.header}.`;
 }
 
 function heatColor(t) {
-  const r = Math.round(30 + t * 200);
-  const g = Math.round(40 + (1 - Math.abs(t - 0.5) * 2) * 120);
-  const b = Math.round(200 - t * 170);
-  return `rgb(${r},${g},${b})`;
+  const tr = Math.round(58 + (212 - 58) * t);
+  const tg = Math.round(155 + (132 - 155) * t);
+  const tb = Math.round(122 + (95 - 122) * t);
+  return `rgb(${tr},${tg},${tb})`;
 }
 
 function describeBar(table, labelIdx, valueCols, rows, colorIdx) {

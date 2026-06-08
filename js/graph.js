@@ -3,7 +3,17 @@ import {
   datasetToTable,
   columnNumericScores,
 } from './storage.js';
-import { renderChart, MAX_ROWS } from './chart-renderers.js';
+import { renderChart, MAX_ROWS, CHART_THEME } from './chart-renderers.js';
+import {
+  getFilterableColumns,
+  inferColumnKind,
+  describeFilterKind,
+  getNumericBounds,
+  getDateBounds,
+  getUniqueValues,
+  applyRowFilters,
+  defaultFilterState,
+} from './graph-filters.js';
 
 export const CHART_TYPES = {
   bar: {
@@ -84,12 +94,18 @@ const valueList = document.getElementById('value-columns');
 const colorField = document.getElementById('field-color');
 const colorSelect = document.getElementById('color-column');
 const chartHint = document.getElementById('chart-hint');
+const rangeControls = document.getElementById('range-controls');
+const rangeHint = document.getElementById('range-hint');
+const resetFiltersBtn = document.getElementById('reset-filters');
 const canvas = document.getElementById('chart-canvas');
 const chartMeta = document.getElementById('chart-meta');
 const renderBtn = document.getElementById('render-chart');
 
 let table = { headers: [], rows: [] };
 let numericCols = [];
+let filterDefs = [];
+let filterState = new Map();
+let filtersInitialized = false;
 
 function init() {
   const dataset = getActiveDataset();
@@ -163,6 +179,7 @@ function applyChartTypeUI() {
   if (colorField) colorField.hidden = !cfg.color;
 
   populateValueControls();
+  updateRangeControls(true);
 }
 
 function populateValueControls() {
@@ -213,16 +230,258 @@ function getSelectedValueCols() {
   }));
 }
 
+function getColumnSelection() {
+  const type = chartTypeSelect?.value ?? 'bar';
+  const labelIdx = Number(labelSelect?.value ?? 0);
+  const yIdx = Number(ySelect?.value ?? 0);
+  const colorIdx = colorSelect?.value === '' ? null : Number(colorSelect.value);
+  const valueCols = getSelectedValueCols();
+  return { type, labelIdx, yIdx, colorIdx, valueCols, table };
+}
+
+function updateRangeControls(reset = false) {
+  if (!rangeControls) return;
+
+  const selection = getColumnSelection();
+  filterDefs = getFilterableColumns(selection);
+
+  if (!filterDefs.length) {
+    rangeControls.innerHTML = '<p class="empty-state">Select columns above to configure range filters.</p>';
+    if (rangeHint) {
+      rangeHint.textContent =
+        'Limit which rows appear in the chart. Controls adapt to each selected column.';
+    }
+    filterState = new Map();
+    return;
+  }
+
+  if (reset || !filtersInitialized) {
+    filterState = defaultFilterState(table.rows, filterDefs);
+    filtersInitialized = true;
+  } else {
+    const next = defaultFilterState(table.rows, filterDefs);
+    filterDefs.forEach((def) => {
+      if (!filterState.has(def.colIdx)) {
+        filterState.set(def.colIdx, next.get(def.colIdx));
+      }
+    });
+    [...filterState.keys()].forEach((colIdx) => {
+      if (!filterDefs.some((d) => d.colIdx === colIdx)) filterState.delete(colIdx);
+    });
+  }
+
+  rangeControls.innerHTML = '';
+
+  filterDefs.forEach((def) => {
+    const kind = inferColumnKind(table.rows, def.colIdx);
+    const state = filterState.get(def.colIdx);
+    if (!state) return;
+
+    const block = document.createElement('div');
+    block.className = 'range-filter-block';
+    block.dataset.colIdx = String(def.colIdx);
+
+    const title = document.createElement('div');
+    title.className = 'range-filter-title';
+    title.textContent = `${def.header} (${describeFilterKind(kind, def.roles)})`;
+    block.appendChild(title);
+
+    if (kind === 'numeric') {
+      const bounds = getNumericBounds(table.rows, def.colIdx);
+      const row = document.createElement('div');
+      row.className = 'range-numeric';
+
+      const minLabel = document.createElement('label');
+      minLabel.innerHTML = 'Min <input type="number" step="any" class="range-min">';
+      const maxLabel = document.createElement('label');
+      maxLabel.innerHTML = 'Max <input type="number" step="any" class="range-max">';
+
+      const minInput = minLabel.querySelector('input');
+      const maxInput = maxLabel.querySelector('input');
+      minInput.value = state.min;
+      maxInput.value = state.max;
+      minInput.min = bounds.min;
+      minInput.max = bounds.max;
+      maxInput.min = bounds.min;
+      maxInput.max = bounds.max;
+
+      const sync = () => {
+        let min = Number(minInput.value);
+        let max = Number(maxInput.value);
+        if (Number.isNaN(min)) min = bounds.min;
+        if (Number.isNaN(max)) max = bounds.max;
+        if (min > max) [min, max] = [max, min];
+        state.min = min;
+        state.max = max;
+        minInput.value = min;
+        maxInput.value = max;
+      };
+
+      minInput.addEventListener('change', () => {
+        sync();
+        drawChart();
+      });
+      maxInput.addEventListener('change', () => {
+        sync();
+        drawChart();
+      });
+
+      row.appendChild(minLabel);
+      row.appendChild(maxLabel);
+      block.appendChild(row);
+    } else if (kind === 'date') {
+      const bounds = getDateBounds(table.rows, def.colIdx);
+      const row = document.createElement('div');
+      row.className = 'range-numeric';
+
+      const minLabel = document.createElement('label');
+      minLabel.innerHTML = 'From <input type="date" class="range-min-date">';
+      const maxLabel = document.createElement('label');
+      maxLabel.innerHTML = 'To <input type="date" class="range-max-date">';
+
+      const minInput = minLabel.querySelector('input');
+      const maxInput = maxLabel.querySelector('input');
+      minInput.value = state.min || bounds.min;
+      maxInput.value = state.max || bounds.max;
+      if (bounds.min) minInput.min = bounds.min;
+      if (bounds.max) maxInput.max = bounds.max;
+
+      const sync = () => {
+        state.min = minInput.value;
+        state.max = maxInput.value;
+        state.minTime = state.min ? Date.parse(state.min) : -Infinity;
+        state.maxTime = state.max ? Date.parse(`${state.max}T23:59:59`) : Infinity;
+        if (state.minTime > state.maxTime) {
+          [state.min, state.max] = [state.max, state.min];
+          [state.minTime, state.maxTime] = [state.maxTime, state.minTime];
+          minInput.value = state.min;
+          maxInput.value = state.max;
+        }
+      };
+
+      minInput.addEventListener('change', () => {
+        sync();
+        drawChart();
+      });
+      maxInput.addEventListener('change', () => {
+        sync();
+        drawChart();
+      });
+
+      row.appendChild(minLabel);
+      row.appendChild(maxLabel);
+      block.appendChild(row);
+    } else {
+      const values = getUniqueValues(table.rows, def.colIdx);
+      const catWrap = document.createElement('div');
+      catWrap.className = 'range-categories';
+
+      const actions = document.createElement('div');
+      actions.className = 'range-cat-actions';
+      const allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'btn btn-ghost btn-sm';
+      allBtn.textContent = 'All';
+      const noneBtn = document.createElement('button');
+      noneBtn.type = 'button';
+      noneBtn.className = 'btn btn-ghost btn-sm';
+      noneBtn.textContent = 'None';
+      actions.appendChild(allBtn);
+      actions.appendChild(noneBtn);
+      block.appendChild(actions);
+
+      values.forEach(({ value, count }) => {
+        const lab = document.createElement('label');
+        lab.className = 'checkbox-row range-cat-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'range-cat-cb';
+        cb.value = value;
+        cb.checked = state.selected.has(value);
+        cb.addEventListener('change', () => {
+          if (cb.checked) state.selected.add(value);
+          else state.selected.delete(value);
+          drawChart();
+        });
+        lab.appendChild(cb);
+        lab.appendChild(document.createTextNode(`${value} (${count})`));
+        catWrap.appendChild(lab);
+      });
+
+      allBtn.addEventListener('click', () => {
+        values.forEach(({ value }) => state.selected.add(value));
+        catWrap.querySelectorAll('.range-cat-cb').forEach((cb) => {
+          cb.checked = true;
+        });
+        drawChart();
+      });
+      noneBtn.addEventListener('click', () => {
+        state.selected.clear();
+        catWrap.querySelectorAll('.range-cat-cb').forEach((cb) => {
+          cb.checked = false;
+        });
+        drawChart();
+      });
+
+      block.appendChild(catWrap);
+    }
+
+    rangeControls.appendChild(block);
+  });
+
+  if (rangeHint) {
+    rangeHint.textContent = `Filtering ${filterDefs.length} column(s) from ${table.rows.length} total rows.`;
+  }
+}
+
+function readFilterStateFromUI() {
+  filterDefs.forEach((def) => {
+    const state = filterState.get(def.colIdx);
+    if (!state) return;
+    const block = rangeControls?.querySelector(`[data-col-idx="${def.colIdx}"]`);
+    if (!block) return;
+
+    if (state.kind === 'numeric') {
+      const minInput = block.querySelector('.range-min');
+      const maxInput = block.querySelector('.range-max');
+      if (minInput && maxInput) {
+        state.min = Number(minInput.value);
+        state.max = Number(maxInput.value);
+      }
+    } else if (state.kind === 'date') {
+      const minInput = block.querySelector('.range-min-date');
+      const maxInput = block.querySelector('.range-max-date');
+      if (minInput && maxInput) {
+        state.min = minInput.value;
+        state.max = maxInput.value;
+        state.minTime = state.min ? Date.parse(state.min) : -Infinity;
+        state.maxTime = state.max ? Date.parse(`${state.max}T23:59:59`) : Infinity;
+      }
+    }
+  });
+}
+
 function buildSpec() {
   const type = chartTypeSelect?.value ?? 'bar';
   const cfg = getChartConfig();
-  const rows = table.rows.slice(0, MAX_ROWS);
   const labelIdx = Number(labelSelect?.value ?? 0);
   const yIdx = Number(ySelect?.value ?? 0);
   const colorIdx = colorSelect?.value === '' ? null : Number(colorSelect?.value);
   const valueCols = getSelectedValueCols();
 
-  const base = { type, table, rows, colorIdx };
+  readFilterStateFromUI();
+  const filtered = applyRowFilters(table.rows, filterDefs, filterState);
+  const rows = filtered.slice(0, MAX_ROWS);
+  const totalRows = table.rows.length;
+  const filteredCount = filtered.length;
+
+  const base = {
+    type,
+    table,
+    rows,
+    colorIdx,
+    filterMeta: { totalRows, filteredCount, capped: filteredCount > MAX_ROWS },
+  };
 
   switch (type) {
     case 'scatter':
@@ -251,15 +510,37 @@ function drawChart() {
   if (spec.error) {
     const { ctx, w, h } = setupCanvasFallback();
     if (ctx) {
-      ctx.fillStyle = '#9aa5b8';
+      ctx.fillStyle = CHART_THEME.errorText;
       ctx.font = '14px DM Sans, system-ui, sans-serif';
       ctx.fillText(spec.error, 24, h / 2);
     }
     if (chartMeta) chartMeta.textContent = spec.error;
     return;
   }
+
+  if (!spec.rows.length) {
+    const { ctx, w, h } = setupCanvasFallback();
+    if (ctx) {
+      ctx.fillStyle = CHART_THEME.errorText;
+      ctx.font = '14px DM Sans, system-ui, sans-serif';
+      ctx.fillText('No rows match the current range filters.', 24, h / 2);
+    }
+    if (chartMeta) {
+      chartMeta.textContent = `No rows match filters (from ${spec.filterMeta?.totalRows ?? 0} total). Widen the range or select more categories.`;
+    }
+    return;
+  }
+
   const msg = renderChart(canvas, spec);
-  if (chartMeta) chartMeta.textContent = msg;
+  if (chartMeta) {
+    const fm = spec.filterMeta;
+    let meta = msg;
+    if (fm && fm.filteredCount < fm.totalRows) {
+      meta += ` · Showing ${spec.rows.length} of ${fm.filteredCount} matching rows (${fm.totalRows} total)`;
+      if (fm.capped) meta += ` · capped at ${MAX_ROWS}`;
+    }
+    chartMeta.textContent = meta;
+  }
   canvas.setAttribute('aria-label', `${getChartConfig().label} chart`);
 }
 
@@ -271,21 +552,38 @@ function setupCanvasFallback() {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = CHART_THEME.bg;
+  ctx.fillRect(0, 0, w, h);
   return { ctx, w, h };
 }
 
 function bindEvents() {
   renderBtn?.addEventListener('click', drawChart);
+  resetFiltersBtn?.addEventListener('click', () => {
+    updateRangeControls(true);
+    drawChart();
+  });
   chartTypeSelect?.addEventListener('change', () => {
     populateColumnDropdowns();
     applyChartTypeUI();
     drawChart();
   });
-  labelSelect?.addEventListener('change', drawChart);
-  ySelect?.addEventListener('change', drawChart);
-  colorSelect?.addEventListener('change', drawChart);
-  valueList?.addEventListener('change', drawChart);
+  labelSelect?.addEventListener('change', () => {
+    updateRangeControls(false);
+    drawChart();
+  });
+  ySelect?.addEventListener('change', () => {
+    updateRangeControls(false);
+    drawChart();
+  });
+  colorSelect?.addEventListener('change', () => {
+    updateRangeControls(false);
+    drawChart();
+  });
+  valueList?.addEventListener('change', () => {
+    updateRangeControls(false);
+    drawChart();
+  });
 }
 
 init();
