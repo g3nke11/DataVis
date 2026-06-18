@@ -2,13 +2,16 @@ import {
   loadUserPrefs,
   saveUserPrefs,
   clearUserPrefs,
-  listStoredDatasets,
-  getStoredDataset,
-  setActiveDatasetId,
-  getActiveDatasetId,
   formatBytes,
   datasetToTable,
 } from './storage.js';
+import {
+  listDatasets,
+  getDataset,
+  setActiveDatasetId,
+  getActiveDatasetId,
+} from './dataset-store.js';
+import { signIn, signUp, signOut, getSession, onAuthStateChange } from './auth.js';
 import {
   computeColumnSummaries,
   SUMMARY_METRIC_KEYS,
@@ -20,10 +23,121 @@ const graphLink = document.getElementById('graph-link');
 const noDatasetsMsg = document.getElementById('no-datasets-msg');
 const statsHint = document.getElementById('stats-hint');
 
-function renderDatasetPicker() {
+const authStatus = document.getElementById('auth-status');
+const authSignedOut = document.getElementById('auth-signed-out');
+const authSignedIn = document.getElementById('auth-signed-in');
+const authEmail = document.getElementById('auth-email');
+const authMsg = document.getElementById('auth-msg');
+const signInForm = document.getElementById('sign-in-form');
+const signUpForm = document.getElementById('sign-up-form');
+const signOutBtn = document.getElementById('sign-out-btn');
+
+let datasetCache = [];
+
+function showAuthMsg(text, kind = 'ok') {
+  if (!authMsg) return;
+  authMsg.textContent = text;
+  authMsg.className = `status-pill ${kind}`;
+  authMsg.hidden = false;
+  setTimeout(() => {
+    authMsg.hidden = true;
+  }, 4000);
+}
+
+function setAuthTab(tab) {
+  document.querySelectorAll('[data-auth-tab]').forEach((btn) => {
+    const active = btn.dataset.authTab === tab;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  if (signInForm) signInForm.hidden = tab !== 'sign-in';
+  if (signUpForm) signUpForm.hidden = tab !== 'sign-up';
+}
+
+document.querySelectorAll('[data-auth-tab]').forEach((btn) => {
+  btn.addEventListener('click', () => setAuthTab(btn.dataset.authTab));
+});
+
+async function refreshAuthUI() {
+  const session = await getSession();
+  const cloud = Boolean(session?.user);
+
+  if (cloud) {
+    if (authSignedOut) authSignedOut.hidden = true;
+    if (authSignedIn) authSignedIn.hidden = false;
+    if (authEmail) authEmail.textContent = session.user.email ?? 'Account';
+    if (authStatus) authStatus.textContent = 'Signed in — datasets sync to Supabase.';
+  } else {
+    if (authSignedOut) authSignedOut.hidden = false;
+    if (authSignedIn) authSignedIn.hidden = true;
+    if (authStatus) authStatus.textContent = 'Sign in to save datasets to your account (optional).';
+  }
+
+  refreshWelcome(session?.user?.email);
+  await renderDatasetPicker();
+}
+
+signInForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('sign-in-email')?.value?.trim() ?? '';
+  const password = document.getElementById('sign-in-password')?.value ?? '';
+  try {
+    await signIn(email, password);
+    showAuthMsg('Signed in successfully.');
+    signInForm.reset();
+    await refreshAuthUI();
+  } catch (err) {
+    showAuthMsg(err.message || 'Sign in failed.', 'err');
+  }
+});
+
+signUpForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('sign-up-email')?.value?.trim() ?? '';
+  const password = document.getElementById('sign-up-password')?.value ?? '';
+  const confirm = document.getElementById('sign-up-password-confirm')?.value ?? '';
+  if (password !== confirm) {
+    showAuthMsg('Passwords do not match.', 'err');
+    return;
+  }
+  try {
+    const { session } = await signUp(email, password);
+    signUpForm.reset();
+    if (session) {
+      showAuthMsg('Account created and signed in.');
+    } else {
+      showAuthMsg('Account created. Check your email if confirmation is required, then sign in.', 'warn');
+      setAuthTab('sign-in');
+    }
+    await refreshAuthUI();
+  } catch (err) {
+    showAuthMsg(err.message || 'Sign up failed.', 'err');
+  }
+});
+
+signOutBtn?.addEventListener('click', async () => {
+  try {
+    await signOut();
+    showAuthMsg('Signed out. Local-only datasets remain in this browser.');
+    await refreshAuthUI();
+  } catch (err) {
+    showAuthMsg(err.message || 'Sign out failed.', 'err');
+  }
+});
+
+async function renderDatasetPicker() {
   if (!datasetListEl) return;
   const activeId = getActiveDatasetId();
-  const datasets = listStoredDatasets();
+
+  let datasets;
+  try {
+    datasets = await listDatasets();
+  } catch (err) {
+    datasetListEl.innerHTML = `<p class="empty-state">${escapeHtml(err.message || 'Could not load datasets.')}</p>`;
+    return;
+  }
+
+  datasetCache = datasets;
 
   if (!datasets.length) {
     datasetListEl.innerHTML = '';
@@ -61,7 +175,8 @@ function renderDatasetPicker() {
     const info = document.createElement('span');
     info.className = 'dataset-option-info';
     const size = formatBytes(ds.text?.length ?? 0);
-    info.innerHTML = `<strong>${escapeHtml(ds.name)}</strong><span>${ds.columns?.length ?? 0} cols · ${ds.rowCount ?? 0} rows · ${size}</span>`;
+    const sourceTag = ds.source === 'cloud' ? ' · cloud' : ' · local';
+    info.innerHTML = `<strong>${escapeHtml(ds.name)}</strong><span>${ds.columns?.length ?? 0} cols · ${ds.rowCount ?? 0} rows · ${size}${sourceTag}</span>`;
 
     label.appendChild(radio);
     label.appendChild(info);
@@ -81,13 +196,14 @@ function renderDatasetPicker() {
     statsWrap.id = `stats-${ds.id}`;
     statsWrap.hidden = true;
 
-    toggleBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    toggleBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
       const open = statsWrap.hidden;
       if (open) {
-        statsWrap.innerHTML = buildStatsPanel(ds);
+        statsWrap.innerHTML = '<p class="empty-state">Loading summary…</p>';
         statsWrap.hidden = false;
+        statsWrap.innerHTML = await buildStatsPanel(ds);
         toggleBtn.textContent = 'Hide column summary';
         toggleBtn.setAttribute('aria-expanded', 'true');
       } else {
@@ -108,13 +224,15 @@ function renderDatasetPicker() {
     setActiveDatasetId(datasets[0].id);
     const firstRadio = datasetListEl.querySelector('input[type="radio"]');
     if (firstRadio) firstRadio.checked = true;
+  } else if (activeId && !datasets.some((d) => d.id === activeId) && datasets[0]) {
+    setActiveDatasetId(datasets[0].id);
   }
 
   updateGraphLink();
 }
 
-function buildStatsPanel(ds) {
-  const full = getStoredDataset(ds.id);
+async function buildStatsPanel(ds) {
+  let full = ds.text ? ds : await getDataset(ds.id);
   if (!full) {
     return '<p class="empty-state">Dataset not found.</p>';
   }
@@ -184,7 +302,7 @@ function buildStatsPanel(ds) {
 function updateGraphLink() {
   if (!graphLink) return;
   const id = getActiveDatasetId();
-  const ds = id ? getStoredDataset(id) : null;
+  const ds = datasetCache.find((d) => d.id === id);
   if (ds) {
     graphLink.href = 'graph.html';
     graphLink.classList.remove('btn-disabled');
@@ -202,7 +320,7 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-document.getElementById('user-form')?.addEventListener('submit', (e) => {
+document.getElementById('user-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const displayName = document.getElementById('display-name')?.value?.trim() ?? '';
   const themeNote = document.getElementById('theme-note')?.value ?? '';
@@ -215,35 +333,51 @@ document.getElementById('user-form')?.addEventListener('submit', (e) => {
       msg.hidden = true;
     }, 2500);
   }
-  refreshWelcome();
+  const session = await getSession();
+  refreshWelcome(session?.user?.email);
 });
 
-document.getElementById('clear-btn')?.addEventListener('click', () => {
+document.getElementById('clear-btn')?.addEventListener('click', async () => {
   if (!confirm('Clear display name and notes only? (Datasets are kept.)')) return;
   clearUserPrefs();
   const nameInput = document.getElementById('display-name');
   const noteInput = document.getElementById('theme-note');
   if (nameInput) nameInput.value = '';
   if (noteInput) noteInput.value = '';
-  refreshWelcome();
+  const session = await getSession();
+  refreshWelcome(session?.user?.email);
 });
 
-function refreshWelcome() {
+function refreshWelcome(accountEmail) {
   const data = loadUserPrefs();
   const welcome = document.getElementById('welcome-line');
-  if (welcome) {
+  if (!welcome) return;
+
+  if (accountEmail) {
     welcome.textContent = data.displayName
-      ? `Signed in locally as ${data.displayName}`
-      : 'Set a display name below (stored only in this browser).';
+      ? `Welcome, ${data.displayName} (${accountEmail})`
+      : `Signed in as ${accountEmail}`;
+    return;
   }
+
+  welcome.textContent = data.displayName
+    ? `Local profile: ${data.displayName} (not signed in)`
+    : 'Sign in below to sync datasets, or set a local display name.';
 }
 
-(function init() {
+async function init() {
   const data = loadUserPrefs();
   const nameInput = document.getElementById('display-name');
   const noteInput = document.getElementById('theme-note');
   if (nameInput) nameInput.value = data.displayName;
   if (noteInput) noteInput.value = data.themeNote;
-  refreshWelcome();
-  renderDatasetPicker();
-})();
+
+  setAuthTab('sign-in');
+  await refreshAuthUI();
+
+  onAuthStateChange(() => {
+    refreshAuthUI();
+  });
+}
+
+init();

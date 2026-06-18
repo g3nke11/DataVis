@@ -649,6 +649,59 @@ select:focus {
   font-size: 0.85rem;
 }
 
+.auth-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.auth-tab {
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-tab.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgb(58 155 122 / 0.1);
+}
+
+.auth-form fieldset + fieldset {
+  margin-top: 0;
+}
+
+.auth-status {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.auth-email-line {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.source-tag {
+  display: inline-block;
+  margin-left: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-dim);
+  background: rgb(58 155 122 / 0.12);
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
 .range-cat-actions {
   display: flex;
   gap: 0.4rem;

@@ -90,6 +90,8 @@ app.get('/api/config', (_req, res) => {
     repo: GITHUB_REPO || null,
     dataPath: GITHUB_DATA_PATH,
     tokenConfigured: Boolean(GITHUB_TOKEN),
+    supabaseUrl: process.env.SUPABASE_URL || null,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
   });
 });
 

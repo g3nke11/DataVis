@@ -1,11 +1,12 @@
 import {
-  listStoredDatasets,
-  getStoredDataset,
-  saveStoredDataset,
-  deleteStoredDataset,
-  datasetToTable,
-  formatBytes,
-} from './storage.js';
+  listDatasets,
+  getDataset,
+  saveDataset,
+  deleteDataset,
+  isCloudSyncEnabled,
+} from './dataset-store.js';
+import { datasetToTable, formatBytes } from './storage.js';
+import { onAuthStateChange } from './auth.js';
 
 const tableBody = document.querySelector('#local-datasets-table tbody');
 const errorBanner = document.getElementById('datasets-error');
@@ -17,6 +18,8 @@ const csvWrap = document.getElementById('csv-preview');
 const rawNote = document.getElementById('raw-note');
 const uploadForm = document.getElementById('upload-form');
 const fileInput = document.getElementById('dataset-file');
+const uploadSubmitBtn = document.getElementById('upload-submit-btn');
+const authNote = document.getElementById('datasets-auth-note');
 
 function showError(msg) {
   if (!errorBanner) return;
@@ -35,6 +38,14 @@ function showSuccess(msg) {
 function clearBanners() {
   if (errorBanner) errorBanner.hidden = true;
   if (successBanner) successBanner.hidden = true;
+}
+
+async function refreshAuthNote() {
+  const cloud = await isCloudSyncEnabled();
+  if (authNote) authNote.hidden = cloud;
+  if (uploadSubmitBtn) {
+    uploadSubmitBtn.textContent = cloud ? 'Upload to account' : 'Save to browser';
+  }
 }
 
 function renderCsvTable(rows) {
@@ -77,7 +88,8 @@ function renderPreview(dataset) {
 
   previewTitle.textContent = name;
   if (metaEl) {
-    metaEl.textContent = `${dataset.columns?.length ?? 0} columns · ${dataset.rowCount ?? 0} rows · ${formatBytes(dataset.text.length)}`;
+    const src = dataset.source === 'cloud' ? 'cloud' : 'local';
+    metaEl.textContent = `${dataset.columns?.length ?? 0} columns · ${dataset.rowCount ?? 0} rows · ${formatBytes(dataset.text?.length ?? 0)} · ${src}`;
   }
 
   jsonPre.hidden = true;
@@ -112,11 +124,21 @@ function renderPreview(dataset) {
   jsonPre.hidden = false;
 }
 
-function renderLocalList() {
+async function renderList() {
   clearBanners();
   if (!tableBody) return;
+  tableBody.innerHTML = '<tr><td colspan="4"><p class="empty-state">Loading…</p></td></tr>';
+
+  let items;
+  try {
+    items = await listDatasets();
+  } catch (err) {
+    tableBody.innerHTML = '';
+    showError(err.message || 'Could not load datasets.');
+    return;
+  }
+
   tableBody.innerHTML = '';
-  const items = listStoredDatasets();
 
   if (!items.length) {
     const row = document.createElement('tr');
@@ -135,11 +157,22 @@ function renderLocalList() {
     btn.type = 'button';
     btn.className = 'btn btn-ghost';
     btn.textContent = item.name;
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       clearBanners();
-      renderPreview(getStoredDataset(item.id));
+      try {
+        const full = await getDataset(item.id);
+        renderPreview(full);
+      } catch (err) {
+        showError(err.message || 'Could not load dataset.');
+      }
     });
     nameTd.appendChild(btn);
+    if (item.source === 'cloud') {
+      const tag = document.createElement('span');
+      tag.className = 'source-tag';
+      tag.textContent = 'cloud';
+      nameTd.appendChild(tag);
+    }
     tr.appendChild(nameTd);
 
     const colsTd = document.createElement('td');
@@ -155,15 +188,20 @@ function renderLocalList() {
     delBtn.type = 'button';
     delBtn.className = 'btn btn-ghost btn-danger-text';
     delBtn.textContent = 'Delete';
-    delBtn.addEventListener('click', () => {
-      if (!confirm(`Delete "${item.name}" from this browser?`)) return;
-      deleteStoredDataset(item.id);
-      renderLocalList();
-      previewTitle.textContent = 'Preview';
-      if (metaEl) metaEl.textContent = '\u00a0';
-      jsonPre.hidden = true;
-      csvWrap.hidden = true;
-      rawNote.hidden = true;
+    delBtn.addEventListener('click', async () => {
+      const where = item.source === 'cloud' ? 'your account' : 'this browser';
+      if (!confirm(`Delete "${item.name}" from ${where}?`)) return;
+      try {
+        await deleteDataset(item.id);
+        await renderList();
+        previewTitle.textContent = 'Preview';
+        if (metaEl) metaEl.textContent = '\u00a0';
+        jsonPre.hidden = true;
+        csvWrap.hidden = true;
+        rawNote.hidden = true;
+      } catch (err) {
+        showError(err.message || 'Delete failed.');
+      }
     });
     actionsTd.appendChild(delBtn);
     tr.appendChild(actionsTd);
@@ -185,19 +223,35 @@ uploadForm?.addEventListener('submit', async (e) => {
     return;
   }
   if (file.size > 4 * 1024 * 1024) {
-    showError('File is too large for browser storage (max ~4 MB).');
+    showError('File is too large (max ~4 MB).');
     return;
   }
+
+  const cloud = await isCloudSyncEnabled();
+  if (uploadSubmitBtn) uploadSubmitBtn.disabled = true;
+
   try {
     const text = await file.text();
-    const saved = saveStoredDataset({ name: file.name, text, mime: file.type });
-    showSuccess(`Saved "${saved.name}" locally (${saved.rowCount} rows).`);
+    const saved = await saveDataset({ name: file.name, text, mime: file.type });
+    const dest = saved.source === 'cloud' ? 'your account' : 'this browser';
+    showSuccess(`Saved "${saved.name}" to ${dest} (${saved.rowCount} rows).`);
     if (fileInput) fileInput.value = '';
-    renderLocalList();
+    await renderList();
     renderPreview(saved);
   } catch (err) {
     showError(err.message || String(err));
+  } finally {
+    if (uploadSubmitBtn) uploadSubmitBtn.disabled = false;
   }
 });
 
-renderLocalList();
+async function init() {
+  await refreshAuthNote();
+  await renderList();
+  onAuthStateChange(async () => {
+    await refreshAuthNote();
+    await renderList();
+  });
+}
+
+init();

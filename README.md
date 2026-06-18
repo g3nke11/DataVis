@@ -1,18 +1,23 @@
 # DataVis
 
-Web app for uploading CSV/JSON datasets to **browser `localStorage`**, selecting an active dataset, and building **comparative bar charts** from chosen columns.
+Web app for uploading CSV/JSON datasets, selecting an active dataset, and building charts from chosen columns. Datasets can be stored in **Supabase** when signed in, or in **browser `localStorage`** when not.
 
 **Live site (GitHub Pages):** [https://g3nke11.github.io/DataVis/](https://g3nke11.github.io/DataVis/)
 
 ## Workflow
 
-1. **Datasets** — Upload `.csv` or `.json` (stored locally, ~4 MB max per file).
-2. **User** — Pick the active dataset and save display preferences.
-3. **Graph** — Bar, line, scatter, histogram, pie, or heatmap; pick columns and optionally color by a category (up to 200 rows).
+1. **User** — Create an account or sign in (optional). Pick the active dataset.
+2. **Datasets** — Upload `.csv` or `.json` (~4 MB max). Signed-in users save to Supabase; otherwise files stay in the browser.
+3. **Graph** — Bar, line, scatter, histogram, pie, or heatmap; pick columns, filter ranges, and optionally color by category (up to 200 rows).
 
-## Run locally (optional API)
+## Supabase setup
 
-The UI works fully on GitHub Pages without Node. The optional `server.js` backend still supports GitHub repo dataset proxying if configured.
+1. Create a Supabase project and run your `datasets` table SQL.
+2. Run **`supabase/rls-policies.sql`** in the Supabase SQL Editor so users can only access their own rows.
+3. In **Authentication → Providers**, enable Email (and configure email confirmation if desired).
+4. Supabase URL and anon key are in `js/config.js` (public anon key is safe with RLS enabled).
+
+## Run locally
 
 ```bash
 npm install
@@ -21,17 +26,18 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000).
 
+The optional `server.js` backend can still proxy GitHub repo datasets if configured in `.env`.
+
 ## Project layout
 
 | Path | Role |
 |------|------|
-| `index.html` | Home |
-| `datasets.html` | Upload & manage local datasets |
-| `user.html` | Preferences + active dataset selection |
-| `graph.html` | Column picker + comparative chart |
-| `js/storage.js` | `localStorage` catalog & parsing |
-| `js/datasets.js` | Upload UI |
-| `js/user.js` | User prefs & dataset picker |
-| `js/graph.js` | Canvas bar chart |
-| `server.js` | Optional Express + GitHub API |
-| `.nojekyll` | Static GitHub Pages |
+| `js/config.js` | Supabase project URL + anon key |
+| `js/supabase-client.js` | Supabase client |
+| `js/auth.js` | Sign in / sign up / sign out |
+| `js/dataset-store.js` | Cloud + local dataset CRUD |
+| `js/storage.js` | Parsing, localStorage fallback |
+| `supabase/rls-policies.sql` | Row Level Security policies |
+| `user.html` | Account + dataset picker |
+| `datasets.html` | Upload & manage datasets |
+| `graph.html` | Chart builder |

@@ -1,8 +1,5 @@
-import {
-  getActiveDataset,
-  datasetToTable,
-  columnNumericScores,
-} from './storage.js';
+import { getActiveDataset } from './dataset-store.js';
+import { datasetToTable, columnNumericScores } from './storage.js';
 import { renderChart, MAX_ROWS, CHART_THEME } from './chart-renderers.js';
 import {
   getFilterableColumns,
@@ -107,8 +104,8 @@ let filterDefs = [];
 let filterState = new Map();
 let filtersInitialized = false;
 
-function init() {
-  const dataset = getActiveDataset();
+async function init() {
+  const dataset = await getActiveDataset();
   if (!dataset) {
     if (emptyState) emptyState.hidden = false;
     if (chartPanel) chartPanel.hidden = true;

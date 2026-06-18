@@ -27,8 +27,12 @@
     <main>
       <section class="hero">
         <h1>Datasets</h1>
-        <p class="lead">Upload CSV or JSON files. They are stored in this browser only (<code>localStorage</code>) for short-term work.</p>
+        <p class="lead" id="datasets-lead">Upload CSV or JSON files. Sign in on the <a href="user.html#account">User page</a> to save datasets to your account.</p>
       </section>
+
+      <p id="datasets-auth-note" class="status-pill warn" style="margin-bottom: 1rem" hidden>
+        Not signed in — uploads are stored in this browser only.
+      </p>
 
       <div id="datasets-error" class="error-banner" role="alert" hidden></div>
       <div id="datasets-success" class="success-banner" role="status" hidden></div>
@@ -41,7 +45,7 @@
             <input id="dataset-file" name="dataset" type="file" accept=".csv,.json,text/csv,application/json" required />
           </fieldset>
           <div class="btn-row" style="margin-top: 1rem">
-            <button type="submit" class="btn btn-primary">Save to browser</button>
+            <button type="submit" class="btn btn-primary" id="upload-submit-btn">Upload dataset</button>
           </div>
         </form>
       </section>
