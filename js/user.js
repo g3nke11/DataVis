@@ -14,9 +14,12 @@ import {
 import { signIn, signUp, signOut, getSession, onAuthStateChange } from './auth.js';
 import {
   computeColumnSummaries,
-  SUMMARY_METRIC_KEYS,
+  visibleSummaryMetrics,
+  summariesToCsv,
+  summariesToJson,
   NA,
 } from './column-stats.js';
+import { downloadText, downloadJson, sanitizeFilename } from './download-utils.js';
 
 const datasetListEl = document.getElementById('dataset-list');
 const graphLink = document.getElementById('graph-link');
@@ -196,6 +199,26 @@ async function renderDatasetPicker() {
     statsWrap.id = `stats-${ds.id}`;
     statsWrap.hidden = true;
 
+    const csvBtn = document.createElement('button');
+    csvBtn.type = 'button';
+    csvBtn.className = 'btn btn-ghost btn-sm';
+    csvBtn.textContent = 'Download summary (CSV)';
+    csvBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await downloadSummary(ds, 'csv');
+    });
+
+    const jsonBtn = document.createElement('button');
+    jsonBtn.type = 'button';
+    jsonBtn.className = 'btn btn-ghost btn-sm';
+    jsonBtn.textContent = 'Download summary (JSON)';
+    jsonBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await downloadSummary(ds, 'json');
+    });
+
     toggleBtn.addEventListener('click', async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -215,6 +238,8 @@ async function renderDatasetPicker() {
     });
 
     actions.appendChild(toggleBtn);
+    actions.appendChild(csvBtn);
+    actions.appendChild(jsonBtn);
     card.appendChild(actions);
     card.appendChild(statsWrap);
     datasetListEl.appendChild(card);
@@ -231,30 +256,46 @@ async function renderDatasetPicker() {
   updateGraphLink();
 }
 
-async function buildStatsPanel(ds) {
-  let full = ds.text ? ds : await getDataset(ds.id);
-  if (!full) {
-    return '<p class="empty-state">Dataset not found.</p>';
-  }
+async function loadSummaryForDataset(ds) {
+  const full = ds.text ? ds : await getDataset(ds.id);
+  if (!full) throw new Error('Dataset not found.');
+  const table = datasetToTable(full);
+  if (!table.headers.length) throw new Error('No columns in this dataset.');
+  return {
+    name: full.name,
+    summaries: computeColumnSummaries(table.headers, table.rows),
+  };
+}
 
-  let table;
+async function downloadSummary(ds, format) {
   try {
-    table = datasetToTable(full);
-  } catch {
-    return '<p class="empty-state">Could not parse dataset.</p>';
+    const { name, summaries } = await loadSummaryForDataset(ds);
+    const base = sanitizeFilename(name.replace(/\.[^.]+$/, '') || name);
+    if (format === 'json') {
+      downloadJson(summariesToJson(name, summaries), `${base}-summary.json`);
+      return;
+    }
+    downloadText(summariesToCsv(name, summaries), `${base}-summary.csv`, 'text/csv;charset=utf-8');
+  } catch (err) {
+    window.alert(err.message || 'Could not download summary.');
+  }
+}
+
+async function buildStatsPanel(ds) {
+  let summary;
+  try {
+    summary = await loadSummaryForDataset(ds);
+  } catch (err) {
+    return `<p class="empty-state">${escapeHtml(err.message || 'Could not load summary.')}</p>`;
   }
 
-  if (!table.headers.length) {
-    return '<p class="empty-state">No columns in this dataset.</p>';
-  }
-
-  const summaries = computeColumnSummaries(table.headers, table.rows);
+  const { name, summaries } = summary;
   const scroll = document.createElement('div');
   scroll.className = 'table-scroll';
 
   const tbl = document.createElement('table');
   tbl.className = 'list-table stats-summary-table';
-  tbl.setAttribute('aria-label', `Column summary for ${ds.name}`);
+  tbl.setAttribute('aria-label', `Column summary for ${name}`);
 
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
@@ -269,13 +310,7 @@ async function buildStatsPanel(ds) {
   tbl.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  SUMMARY_METRIC_KEYS.forEach((metricKey) => {
-    const hasValue = summaries.some((col) => {
-      const v = col.metrics[metricKey];
-      return v != null && v !== NA;
-    });
-    if (!hasValue) return;
-
+  visibleSummaryMetrics(summaries).forEach((metricKey) => {
     const tr = document.createElement('tr');
     const metricTh = document.createElement('th');
     metricTh.scope = 'row';

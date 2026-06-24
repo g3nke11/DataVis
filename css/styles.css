@@ -147,6 +147,12 @@ main {
   transform: scale(0.98);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .btn-primary {
   background: var(--accent);
   color: #fff;
@@ -495,7 +501,15 @@ select:focus {
   gap: 0.5rem;
 }
 
+.chart-download-row {
+  margin-bottom: 0.75rem;
+}
+
 .dataset-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
   padding-left: 1.85rem;
 }
 

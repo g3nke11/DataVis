@@ -11,6 +11,7 @@ import {
   applyRowFilters,
   defaultFilterState,
 } from './graph-filters.js';
+import { downloadCanvasPng, sanitizeFilename } from './download-utils.js';
 
 export const CHART_TYPES = {
   bar: {
@@ -97,12 +98,20 @@ const resetFiltersBtn = document.getElementById('reset-filters');
 const canvas = document.getElementById('chart-canvas');
 const chartMeta = document.getElementById('chart-meta');
 const renderBtn = document.getElementById('render-chart');
+const downloadChartBtn = document.getElementById('download-chart-png');
 
 let table = { headers: [], rows: [] };
 let numericCols = [];
 let filterDefs = [];
 let filterState = new Map();
 let filtersInitialized = false;
+let activeDatasetName = '';
+let chartDownloadReady = false;
+
+function setChartDownloadReady(ready) {
+  chartDownloadReady = ready;
+  if (downloadChartBtn) downloadChartBtn.disabled = !ready;
+}
 
 async function init() {
   const dataset = await getActiveDataset();
@@ -115,6 +124,7 @@ async function init() {
   if (emptyState) emptyState.hidden = true;
   if (chartPanel) chartPanel.hidden = false;
   if (datasetTitle) datasetTitle.textContent = dataset.name;
+  activeDatasetName = dataset.name;
 
   table = datasetToTable(dataset);
   numericCols = columnNumericScores(table.headers, table.rows).filter((c) => c.numericRatio >= 0.5);
@@ -505,6 +515,7 @@ function drawChart() {
   if (!canvas) return;
   const spec = buildSpec();
   if (spec.error) {
+    setChartDownloadReady(false);
     const { ctx, w, h } = setupCanvasFallback();
     if (ctx) {
       ctx.fillStyle = CHART_THEME.errorText;
@@ -516,6 +527,7 @@ function drawChart() {
   }
 
   if (!spec.rows.length) {
+    setChartDownloadReady(false);
     const { ctx, w, h } = setupCanvasFallback();
     if (ctx) {
       ctx.fillStyle = CHART_THEME.errorText;
@@ -529,6 +541,7 @@ function drawChart() {
   }
 
   const msg = renderChart(canvas, spec);
+  setChartDownloadReady(true);
   if (chartMeta) {
     const fm = spec.filterMeta;
     let meta = msg;
@@ -556,6 +569,13 @@ function setupCanvasFallback() {
 
 function bindEvents() {
   renderBtn?.addEventListener('click', drawChart);
+  downloadChartBtn?.addEventListener('click', () => {
+    if (!chartDownloadReady || !canvas) return;
+    const chartType = chartTypeSelect?.value ?? 'chart';
+    const base = sanitizeFilename(activeDatasetName || 'chart');
+    const filename = `${base}-${chartType}-chart.png`;
+    downloadCanvasPng(canvas, filename);
+  });
   resetFiltersBtn?.addEventListener('click', () => {
     updateRangeControls(true);
     drawChart();

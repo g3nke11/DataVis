@@ -220,3 +220,45 @@ export const SUMMARY_METRIC_KEYS = [
   'Mode count',
   'Unique values',
 ];
+
+/** Metric rows that have at least one non-N/A value across columns. */
+export function visibleSummaryMetrics(summaries) {
+  return SUMMARY_METRIC_KEYS.filter((metricKey) =>
+    summaries.some((col) => {
+      const v = col.metrics[metricKey];
+      return v != null && v !== NA;
+    })
+  );
+}
+
+export function summariesToCsv(datasetName, summaries) {
+  const metrics = visibleSummaryMetrics(summaries);
+  const header = ['Metric', ...summaries.map((c) => c.column)];
+  const lines = [header.map(csvEscapeCell).join(',')];
+  metrics.forEach((metricKey) => {
+    const row = [metricKey, ...summaries.map((c) => c.metrics[metricKey] ?? NA)];
+    lines.push(row.map(csvEscapeCell).join(','));
+  });
+  return `# Summary: ${datasetName}\n${lines.join('\n')}\n`;
+}
+
+export function summariesToJson(datasetName, summaries) {
+  const metrics = visibleSummaryMetrics(summaries);
+  return {
+    dataset: datasetName,
+    exportedAt: new Date().toISOString(),
+    columns: summaries.map((col) => ({
+      name: col.column,
+      kind: col.kind,
+      metrics: Object.fromEntries(
+        metrics.map((key) => [key, col.metrics[key] ?? NA])
+      ),
+    })),
+  };
+}
+
+function csvEscapeCell(value) {
+  const s = String(value ?? '');
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
