@@ -92,6 +92,80 @@ function guessMime(name) {
   return 'text/plain';
 }
 
+function normalizeMime(mime) {
+  return String(mime || '')
+    .toLowerCase()
+    .split(';')[0]
+    .trim();
+}
+
+function isCsvDataset(dataset) {
+  const lower = dataset.name.toLowerCase();
+  const mime = normalizeMime(dataset.mime);
+  return lower.endsWith('.csv') || mime === 'text/csv' || mime === 'application/vnd.ms-excel';
+}
+
+function isJsonDataset(dataset) {
+  const lower = dataset.name.toLowerCase();
+  const mime = normalizeMime(dataset.mime);
+  return lower.endsWith('.json') || mime === 'application/json' || mime === 'text/json';
+}
+
+function cellValue(val) {
+  if (val == null) return '';
+  if (typeof val === 'object') return JSON.stringify(val);
+  return String(val);
+}
+
+const JSON_RECORD_KEYS = ['data', 'records', 'rows', 'results', 'items'];
+
+function unwrapJsonRoot(data) {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    for (const key of JSON_RECORD_KEYS) {
+      if (Array.isArray(data[key])) return data[key];
+    }
+  }
+  return data;
+}
+
+function jsonToTable(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('Invalid JSON file.');
+  }
+
+  data = unwrapJsonRoot(data);
+
+  if (Array.isArray(data)) {
+    if (!data.length) return { headers: [], rows: [] };
+
+    if (data.every((row) => Array.isArray(row))) {
+      const [headerRow, ...bodyRows] = data;
+      const headers = headerRow.map(cellValue);
+      const rows = bodyRows.map((row) => headers.map((_h, i) => cellValue(row[i])));
+      return { headers, rows };
+    }
+
+    if (typeof data[0] === 'object' && data[0] !== null && !Array.isArray(data[0])) {
+      const headers = [...new Set(data.flatMap((row) => Object.keys(row)))];
+      const rows = data.map((row) => headers.map((h) => cellValue(row[h])));
+      return { headers, rows };
+    }
+
+    return { headers: ['value'], rows: data.map((v) => [cellValue(v)]) };
+  }
+
+  if (typeof data === 'object' && data !== null) {
+    const headers = Object.keys(data);
+    return { headers, rows: [headers.map((h) => cellValue(data[h]))] };
+  }
+
+  return { headers: ['value'], rows: [[cellValue(data)]] };
+}
+
 export function parseCsv(text) {
   const lines = [];
   let row = [];
@@ -130,33 +204,14 @@ export function parseCsv(text) {
   return lines;
 }
 
-function jsonToTable(text) {
-  const data = JSON.parse(text);
-  if (Array.isArray(data)) {
-    if (!data.length) return { headers: [], rows: [] };
-    if (typeof data[0] === 'object' && data[0] !== null) {
-      const headers = [...new Set(data.flatMap((row) => Object.keys(row)))];
-      const rows = data.map((row) => headers.map((h) => String(row[h] ?? '')));
-      return { headers, rows };
-    }
-    return { headers: ['value'], rows: data.map((v) => [String(v)]) };
-  }
-  if (typeof data === 'object' && data !== null) {
-    const headers = Object.keys(data);
-    return { headers, rows: [headers.map((h) => String(data[h]))] };
-  }
-  return { headers: ['value'], rows: [[String(data)]] };
-}
-
 export function datasetToTable(dataset) {
-  const lower = dataset.name.toLowerCase();
-  if (lower.endsWith('.csv') || dataset.mime === 'text/csv') {
+  if (isCsvDataset(dataset)) {
     const lines = parseCsv(dataset.text.trimEnd());
     if (!lines.length) return { headers: [], rows: [] };
     const [headers, ...rows] = lines;
     return { headers, rows };
   }
-  if (lower.endsWith('.json') || dataset.mime === 'application/json') {
+  if (isJsonDataset(dataset)) {
     return jsonToTable(dataset.text);
   }
   return { headers: ['text'], rows: dataset.text.split('\n').map((line) => [line]) };
