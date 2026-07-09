@@ -16,12 +16,18 @@
   <body>
     <header class="site-header">
       <div class="brand"><a href="./">Data<span>Vis</span></a></div>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="./">Home</a>
-        <a href="user.html">User</a>
-        <a href="datasets.html">Datasets</a>
-        <a href="graph.html" aria-current="page">Graph</a>
-      </nav>
+      <div class="site-header-actions">
+        <nav class="site-nav" aria-label="Primary">
+          <a href="./">Home</a>
+          <a href="user.html">User</a>
+          <a href="datasets.html">Datasets</a>
+          <a href="graph.html" aria-current="page">Graph</a>
+        </nav>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark mode">
+          <span class="theme-toggle-icon" aria-hidden="true"></span>
+          <span class="theme-toggle-label">Dark</span>
+        </button>
+      </div>
     </header>
 
     <main>
@@ -81,6 +87,17 @@
             <button type="button" class="btn btn-primary" id="render-chart">Update chart</button>
             <a class="btn btn-ghost" href="user.html">Change dataset</a>
           </div>
+          <fieldset id="field-save-graph" class="span-full" style="margin-top: 1.25rem" hidden>
+            <span class="field-label">Save graph</span>
+            <p id="save-graph-hint" class="chart-hint">
+              Save the current chart type, columns, and range filters to your account.
+            </p>
+            <div class="save-graph-row">
+              <input type="text" id="save-graph-name" placeholder="Graph name (e.g. Q1 sales by region)" maxlength="120" />
+              <button type="button" class="btn btn-primary btn-sm" id="save-graph-btn">Save graph</button>
+            </div>
+            <p id="save-graph-msg" class="status-pill ok" style="margin-top: 0.65rem" hidden></p>
+          </fieldset>
         </section>
 
         <section class="panel chart-panel">
@@ -99,6 +116,7 @@
       <p>Charts use up to 200 rows from the selected dataset.</p>
     </footer>
 
+    <script type="module" src="js/theme-ui.js"></script>
     <script type="module" src="js/graph.js"></script>
   </body>
 </html>

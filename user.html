@@ -16,12 +16,18 @@
   <body>
     <header class="site-header">
       <div class="brand"><a href="./">Data<span>Vis</span></a></div>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="./">Home</a>
-        <a href="user.html" aria-current="page">User</a>
-        <a href="datasets.html">Datasets</a>
-        <a href="graph.html">Graph</a>
-      </nav>
+      <div class="site-header-actions">
+        <nav class="site-nav" aria-label="Primary">
+          <a href="./">Home</a>
+          <a href="user.html" aria-current="page">User</a>
+          <a href="datasets.html">Datasets</a>
+          <a href="graph.html">Graph</a>
+        </nav>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark mode">
+          <span class="theme-toggle-icon" aria-hidden="true"></span>
+          <span class="theme-toggle-label">Dark</span>
+        </button>
+      </div>
     </header>
 
     <main>
@@ -91,7 +97,7 @@
         </p>
         <div id="dataset-list" class="dataset-list" role="radiogroup" aria-label="Stored datasets"></div>
         <p id="stats-hint" class="stats-hint" hidden>
-          Expand a dataset to preview column summaries, or download them as CSV/JSON (mean, median, mode, and more).
+          Download column summaries or open saved graphs listed under each cloud dataset.
         </p>
         <div class="btn-row" style="margin-top: 1.25rem">
           <a id="graph-link" class="btn btn-primary btn-disabled" href="#" aria-disabled="true">Open graph</a>
@@ -126,6 +132,7 @@
       <p><a href="datasets.html">Upload datasets →</a></p>
     </footer>
 
+    <script type="module" src="js/theme-ui.js"></script>
     <script type="module" src="js/user.js"></script>
   </body>
 </html>

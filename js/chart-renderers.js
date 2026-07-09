@@ -15,12 +15,24 @@ export const PALETTE = [
   '#c77d6a',
 ];
 
+export function getChartTheme() {
+  const s = getComputedStyle(document.documentElement);
+  return {
+    bg: s.getPropertyValue('--chart-bg').trim() || '#fffcf7',
+    grid: s.getPropertyValue('--chart-grid').trim() || '#e5ddd0',
+    axisText: s.getPropertyValue('--chart-axis-text').trim() || '#7a6f5e',
+    legendText: s.getPropertyValue('--chart-legend-text').trim() || '#3d3428',
+    errorText: s.getPropertyValue('--chart-error-text').trim() || '#7a6f5e',
+  };
+}
+
+/** @deprecated Use getChartTheme() for theme-aware colors */
 export const CHART_THEME = {
-  bg: '#fffcf7',
-  grid: '#e5ddd0',
-  axisText: '#7a6f5e',
-  legendText: '#3d3428',
-  errorText: '#7a6f5e',
+  get bg() { return getChartTheme().bg; },
+  get grid() { return getChartTheme().grid; },
+  get axisText() { return getChartTheme().axisText; },
+  get legendText() { return getChartTheme().legendText; },
+  get errorText() { return getChartTheme().errorText; },
 };
 
 export const MAX_ROWS = 200;
@@ -33,7 +45,7 @@ export function setupCanvas(canvas) {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = CHART_THEME.bg;
+  ctx.fillStyle = getChartTheme().bg;
   ctx.fillRect(0, 0, w, h);
   return { ctx, w, h, dpr };
 }
@@ -55,8 +67,8 @@ function colorForRow(row, colorIdx, colorMap, fallback) {
 }
 
 function drawGrid(ctx, pad, plotW, plotH, maxVal) {
-  ctx.strokeStyle = CHART_THEME.grid;
-  ctx.fillStyle = CHART_THEME.axisText;
+  ctx.strokeStyle = getChartTheme().grid;
+  ctx.fillStyle = getChartTheme().axisText;
   ctx.font = '11px DM Sans, system-ui, sans-serif';
   for (let t = 0; t <= 4; t += 1) {
     const y = pad.top + plotH - (plotH * t) / 4;
@@ -71,7 +83,7 @@ function drawGrid(ctx, pad, plotW, plotH, maxVal) {
 
 function drawRotatedLabels(ctx, pad, plotW, plotH, labels, dpr) {
   ctx.save();
-  ctx.fillStyle = CHART_THEME.axisText;
+  ctx.fillStyle = getChartTheme().axisText;
   ctx.textAlign = 'right';
   const groupW = plotW / Math.max(labels.length, 1);
   labels.forEach((label, gi) => {
@@ -89,7 +101,7 @@ function drawLegend(ctx, items, x = 8, y = 8) {
     const lx = x + i * 118;
     ctx.fillStyle = item.color;
     ctx.fillRect(lx, y, 10, 10);
-    ctx.fillStyle = CHART_THEME.legendText;
+    ctx.fillStyle = getChartTheme().legendText;
     ctx.font = '11px DM Sans, system-ui, sans-serif';
     ctx.fillText(item.label.slice(0, 16), lx + 14, y + 9);
   });
@@ -247,7 +259,7 @@ export function drawScatterChart(canvas, { table, xIdx, yIdx, colorIdx, rows }) 
 
   drawGrid(ctx, pad, plotW, plotH, maxY);
 
-  ctx.fillStyle = CHART_THEME.axisText;
+  ctx.fillStyle = getChartTheme().axisText;
   ctx.fillText(table.headers[xIdx], pad.left + plotW / 2 - 20, h - 12);
   ctx.save();
   ctx.translate(14, pad.top + plotH / 2);
@@ -453,7 +465,7 @@ export function drawHeatmap(canvas, { table, xIdx, yIdx, valueCol, rows }) {
     });
   });
 
-  ctx.fillStyle = CHART_THEME.axisText;
+  ctx.fillStyle = getChartTheme().axisText;
   ctx.font = '10px DM Sans, system-ui, sans-serif';
   xCats.forEach((x, xi) => {
     const tx = pad.left + xi * cellW + cellW / 2;
@@ -467,7 +479,7 @@ export function drawHeatmap(canvas, { table, xIdx, yIdx, valueCol, rows }) {
     ctx.fillText(y.slice(0, 14), 4, pad.top + yi * cellH + cellH / 2 + 4);
   });
 
-  ctx.fillStyle = CHART_THEME.legendText;
+  ctx.fillStyle = getChartTheme().legendText;
   ctx.fillText(`${table.headers[valueCol.colIdx]}: ${min.toFixed(2)} → ${max.toFixed(2)}`, pad.left, 12);
 
   return `Heatmap: ${table.headers[xIdx]} × ${table.headers[yIdx]}, cell value = ${valueCol.header}.`;

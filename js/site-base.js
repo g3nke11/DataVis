@@ -8,3 +8,9 @@
     location.replace(path + '/' + location.search + location.hash);
   }
 })();
+(function applyThemeEarly() {
+  var key = 'datavis_theme';
+  var stored = localStorage.getItem(key);
+  var theme = stored === 'dark' || stored === 'light' ? stored : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+})();

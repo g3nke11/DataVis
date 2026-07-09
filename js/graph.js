@@ -1,6 +1,6 @@
-import { getActiveDataset } from './dataset-store.js';
+import { getActiveDataset, setActiveDatasetId } from './dataset-store.js';
 import { datasetToTable, columnNumericScores } from './storage.js';
-import { renderChart, MAX_ROWS, CHART_THEME } from './chart-renderers.js';
+import { renderChart, MAX_ROWS, getChartTheme } from './chart-renderers.js';
 import {
   getFilterableColumns,
   inferColumnKind,
@@ -11,6 +11,12 @@ import {
   applyRowFilters,
   defaultFilterState,
 } from './graph-filters.js';
+import {
+  buildGraphConfig,
+  mergeFilterStateFromConfig,
+  headerIndex,
+} from './graph-config.js';
+import { saveSavedGraph, getSavedGraph, canSaveGraphs } from './saved-graph-store.js';
 import { downloadCanvasPng, sanitizeFilename } from './download-utils.js';
 
 export const CHART_TYPES = {
@@ -99,6 +105,10 @@ const canvas = document.getElementById('chart-canvas');
 const chartMeta = document.getElementById('chart-meta');
 const renderBtn = document.getElementById('render-chart');
 const downloadChartBtn = document.getElementById('download-chart-png');
+const saveGraphField = document.getElementById('field-save-graph');
+const saveGraphNameInput = document.getElementById('save-graph-name');
+const saveGraphBtn = document.getElementById('save-graph-btn');
+const saveGraphMsg = document.getElementById('save-graph-msg');
 
 let table = { headers: [], rows: [] };
 let numericCols = [];
@@ -106,7 +116,10 @@ let filterDefs = [];
 let filterState = new Map();
 let filtersInitialized = false;
 let activeDatasetName = '';
+let activeDatasetId = '';
+let activeDatasetSource = 'local';
 let chartDownloadReady = false;
+let loadedGraphName = '';
 
 function setChartDownloadReady(ready) {
   chartDownloadReady = ready;
@@ -114,7 +127,14 @@ function setChartDownloadReady(ready) {
 }
 
 async function init() {
-  const dataset = await getActiveDataset();
+  const graphParam = new URLSearchParams(window.location.search).get('graph');
+  let pendingGraph = graphParam ? await getSavedGraph(graphParam) : null;
+
+  if (pendingGraph) {
+    setActiveDatasetId(pendingGraph.datasetId);
+  }
+
+  let dataset = await getActiveDataset();
   if (!dataset) {
     if (emptyState) emptyState.hidden = false;
     if (chartPanel) chartPanel.hidden = true;
@@ -123,8 +143,15 @@ async function init() {
 
   if (emptyState) emptyState.hidden = true;
   if (chartPanel) chartPanel.hidden = false;
-  if (datasetTitle) datasetTitle.textContent = dataset.name;
+  if (datasetTitle) {
+    datasetTitle.textContent = pendingGraph
+      ? `${dataset.name} — ${pendingGraph.name}`
+      : dataset.name;
+  }
   activeDatasetName = dataset.name;
+  activeDatasetId = dataset.id;
+  activeDatasetSource = dataset.source ?? 'local';
+  loadedGraphName = pendingGraph?.name ?? '';
 
   table = datasetToTable(dataset);
   numericCols = columnNumericScores(table.headers, table.rows).filter((c) => c.numericRatio >= 0.5);
@@ -133,6 +160,15 @@ async function init() {
   populateColumnDropdowns();
   applyChartTypeUI();
   bindEvents();
+  await refreshSaveGraphUI();
+
+  if (pendingGraph) {
+    applySavedGraphConfig(pendingGraph.chartType, pendingGraph.config);
+    if (saveGraphNameInput && !saveGraphNameInput.value) {
+      saveGraphNameInput.value = pendingGraph.name;
+    }
+  }
+
   drawChart();
 }
 
@@ -189,10 +225,11 @@ function applyChartTypeUI() {
   updateRangeControls(true);
 }
 
-function populateValueControls() {
+function populateValueControls(selectedHeaders) {
   if (!valueList) return;
   const cfg = getChartConfig();
   const multi = cfg.values === 'multi';
+  const selectedSet = selectedHeaders?.length ? new Set(selectedHeaders) : null;
   valueList.innerHTML = '';
 
   const cols = cfg.numericLabel
@@ -218,7 +255,9 @@ function populateValueControls() {
     input.name = 'value-col';
     input.value = String(colIdx);
     input.dataset.header = header;
-    if (multi) {
+    if (selectedSet) {
+      input.checked = selectedSet.has(header);
+    } else if (multi) {
       input.checked = valueList.querySelectorAll('input').length < 3;
     } else if (!valueList.querySelector('input:checked')) {
       input.checked = true;
@@ -227,6 +266,101 @@ function populateValueControls() {
     label.appendChild(document.createTextNode(header));
     valueList.appendChild(label);
   });
+}
+
+function applySavedGraphConfig(chartType, config) {
+  if (chartTypeSelect) chartTypeSelect.value = chartType;
+
+  const cfg = CHART_TYPES[chartType] ?? CHART_TYPES.bar;
+  if (chartHint) chartHint.textContent = cfg.hint;
+  if (labelTitle) labelTitle.textContent = cfg.labelTitle;
+  if (valueTitle) valueTitle.textContent = cfg.valuesTitle || 'Value columns (numeric)';
+  if (yTitle && cfg.yTitle) yTitle.textContent = cfg.yTitle;
+  if (labelField) labelField.hidden = !cfg.needsLabel;
+  if (yField) yField.hidden = !cfg.needsY;
+  if (colorField) colorField.hidden = !cfg.color;
+
+  populateColumnDropdowns();
+
+  const labelIdx = headerIndex(table.headers, config.labelColumn);
+  const yIdx = headerIndex(table.headers, config.yColumn);
+  const colorIdx = config.colorColumn ? headerIndex(table.headers, config.colorColumn) : null;
+
+  if (labelIdx != null && labelSelect) labelSelect.value = String(labelIdx);
+  if (yIdx != null && ySelect) ySelect.value = String(yIdx);
+  if (colorSelect) colorSelect.value = colorIdx != null ? String(colorIdx) : '';
+
+  populateValueControls(config.valueColumns ?? []);
+
+  const selection = getColumnSelection();
+  filterDefs = getFilterableColumns(selection);
+  filtersInitialized = true;
+  const base = defaultFilterState(table.rows, filterDefs);
+  filterState = mergeFilterStateFromConfig(table.rows, filterDefs, config, base);
+  updateRangeControls(false);
+}
+
+async function refreshSaveGraphUI() {
+  const signedIn = await canSaveGraphs();
+  const canSave = signedIn && activeDatasetSource === 'cloud';
+  if (saveGraphField) saveGraphField.hidden = !canSave;
+}
+
+function showSaveGraphMsg(text, kind = 'ok') {
+  if (!saveGraphMsg) return;
+  saveGraphMsg.textContent = text;
+  saveGraphMsg.className = `status-pill ${kind}`;
+  saveGraphMsg.hidden = false;
+  setTimeout(() => {
+    saveGraphMsg.hidden = true;
+  }, 3500);
+}
+
+async function handleSaveGraph() {
+  if (activeDatasetSource !== 'cloud') {
+    showSaveGraphMsg('Sign in and use a cloud dataset to save graphs.', 'warn');
+    return;
+  }
+
+  const name = saveGraphNameInput?.value?.trim() ?? '';
+  if (!name) {
+    showSaveGraphMsg('Enter a name for this graph.', 'warn');
+    return;
+  }
+
+  readFilterStateFromUI();
+  const selection = getColumnSelection();
+  const config = buildGraphConfig({
+    headers: table.headers,
+    labelIdx: selection.labelIdx,
+    yIdx: selection.yIdx,
+    colorIdx: selection.colorIdx,
+    valueCols: selection.valueCols,
+    filterDefs,
+    filterState,
+  });
+
+  const spec = buildSpec();
+  if (spec.error || !spec.rows?.length) {
+    showSaveGraphMsg('Fix chart errors before saving.', 'err');
+    return;
+  }
+
+  if (saveGraphBtn) saveGraphBtn.disabled = true;
+  try {
+    await saveSavedGraph({
+      datasetId: activeDatasetId,
+      name,
+      chartType: selection.type,
+      config,
+    });
+    loadedGraphName = name;
+    showSaveGraphMsg(`Saved “${name}” to your account.`);
+  } catch (err) {
+    showSaveGraphMsg(err.message || 'Could not save graph.', 'err');
+  } finally {
+    if (saveGraphBtn) saveGraphBtn.disabled = false;
+  }
 }
 
 function getSelectedValueCols() {
@@ -518,7 +652,7 @@ function drawChart() {
     setChartDownloadReady(false);
     const { ctx, w, h } = setupCanvasFallback();
     if (ctx) {
-      ctx.fillStyle = CHART_THEME.errorText;
+      ctx.fillStyle = getChartTheme().errorText;
       ctx.font = '14px DM Sans, system-ui, sans-serif';
       ctx.fillText(spec.error, 24, h / 2);
     }
@@ -530,7 +664,7 @@ function drawChart() {
     setChartDownloadReady(false);
     const { ctx, w, h } = setupCanvasFallback();
     if (ctx) {
-      ctx.fillStyle = CHART_THEME.errorText;
+      ctx.fillStyle = getChartTheme().errorText;
       ctx.font = '14px DM Sans, system-ui, sans-serif';
       ctx.fillText('No rows match the current range filters.', 24, h / 2);
     }
@@ -562,7 +696,7 @@ function setupCanvasFallback() {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = CHART_THEME.bg;
+  ctx.fillStyle = getChartTheme().bg;
   ctx.fillRect(0, 0, w, h);
   return { ctx, w, h };
 }
@@ -573,9 +707,11 @@ function bindEvents() {
     if (!chartDownloadReady || !canvas) return;
     const chartType = chartTypeSelect?.value ?? 'chart';
     const base = sanitizeFilename(activeDatasetName || 'chart');
-    const filename = `${base}-${chartType}-chart.png`;
+    const graphPart = loadedGraphName ? `-${sanitizeFilename(loadedGraphName)}` : '';
+    const filename = `${base}${graphPart}-${chartType}-chart.png`;
     downloadCanvasPng(canvas, filename);
   });
+  saveGraphBtn?.addEventListener('click', handleSaveGraph);
   resetFiltersBtn?.addEventListener('click', () => {
     updateRangeControls(true);
     drawChart();
@@ -605,3 +741,4 @@ function bindEvents() {
 
 init();
 window.addEventListener('resize', () => drawChart());
+window.addEventListener('datavis-themechange', () => drawChart());

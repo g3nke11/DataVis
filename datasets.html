@@ -16,12 +16,18 @@
   <body>
     <header class="site-header">
       <div class="brand"><a href="./">Data<span>Vis</span></a></div>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="./">Home</a>
-        <a href="user.html">User</a>
-        <a href="datasets.html" aria-current="page">Datasets</a>
-        <a href="graph.html">Graph</a>
-      </nav>
+      <div class="site-header-actions">
+        <nav class="site-nav" aria-label="Primary">
+          <a href="./">Home</a>
+          <a href="user.html">User</a>
+          <a href="datasets.html" aria-current="page">Datasets</a>
+          <a href="graph.html">Graph</a>
+        </nav>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark mode">
+          <span class="theme-toggle-icon" aria-hidden="true"></span>
+          <span class="theme-toggle-label">Dark</span>
+        </button>
+      </div>
     </header>
 
     <main>
@@ -80,6 +86,7 @@
       <p><a href="user.html">Select a dataset on the user page →</a> then open the graph.</p>
     </footer>
 
+    <script type="module" src="js/theme-ui.js"></script>
     <script type="module" src="js/datasets.js"></script>
   </body>
 </html>

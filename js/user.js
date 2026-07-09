@@ -20,6 +20,12 @@ import {
   NA,
 } from './column-stats.js';
 import { downloadText, downloadJson, sanitizeFilename } from './download-utils.js';
+import {
+  listSavedGraphsByDatasetIds,
+  canSaveGraphs,
+  deleteSavedGraph,
+} from './saved-graph-store.js';
+import { downloadSavedGraphPng } from './chart-export.js';
 
 const datasetListEl = document.getElementById('dataset-list');
 const graphLink = document.getElementById('graph-link');
@@ -142,6 +148,21 @@ async function renderDatasetPicker() {
 
   datasetCache = datasets;
 
+  const cloudIds = datasets.filter((d) => d.source === 'cloud').map((d) => d.id);
+  const graphsByDataset = new Map();
+  const signedIn = await canSaveGraphs();
+  if (signedIn && cloudIds.length) {
+    try {
+      const graphs = await listSavedGraphsByDatasetIds(cloudIds);
+      graphs.forEach((g) => {
+        if (!graphsByDataset.has(g.datasetId)) graphsByDataset.set(g.datasetId, []);
+        graphsByDataset.get(g.datasetId).push(g);
+      });
+    } catch {
+      /* saved graphs are optional UI */
+    }
+  }
+
   if (!datasets.length) {
     datasetListEl.innerHTML = '';
     if (noDatasetsMsg) noDatasetsMsg.hidden = false;
@@ -242,6 +263,12 @@ async function renderDatasetPicker() {
     actions.appendChild(jsonBtn);
     card.appendChild(actions);
     card.appendChild(statsWrap);
+
+    const savedGraphs = graphsByDataset.get(ds.id) ?? [];
+    if (savedGraphs.length) {
+      card.appendChild(buildSavedGraphsList(ds, savedGraphs));
+    }
+
     datasetListEl.appendChild(card);
   });
 
@@ -254,6 +281,80 @@ async function renderDatasetPicker() {
   }
 
   updateGraphLink();
+}
+
+function buildSavedGraphsList(ds, graphs) {
+  const wrap = document.createElement('div');
+  wrap.className = 'saved-graphs-wrap';
+
+  const label = document.createElement('div');
+  label.className = 'saved-graphs-label';
+  label.textContent = 'Saved graphs';
+  wrap.appendChild(label);
+
+  const list = document.createElement('ul');
+  list.className = 'saved-graphs-list';
+
+  graphs.forEach((graph) => {
+    const item = document.createElement('li');
+    item.className = 'saved-graph-item';
+
+    const openLink = document.createElement('a');
+    openLink.className = 'saved-graph-link';
+    openLink.href = `graph.html?graph=${encodeURIComponent(graph.id)}`;
+    openLink.textContent = graph.name;
+    openLink.title = `${graph.chartType} chart`;
+    openLink.addEventListener('click', () => {
+      setActiveDatasetId(ds.id);
+    });
+
+    const meta = document.createElement('span');
+    meta.className = 'saved-graph-type';
+    meta.textContent = graph.chartType;
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.type = 'button';
+    downloadBtn.className = 'btn btn-ghost btn-sm';
+    downloadBtn.textContent = 'Download PNG';
+    downloadBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      await downloadSavedGraphForDataset(ds, graph);
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-ghost btn-sm btn-danger-text';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      if (!confirm(`Delete saved graph "${graph.name}"?`)) return;
+      try {
+        await deleteSavedGraph(graph.id);
+        await renderDatasetPicker();
+      } catch (err) {
+        window.alert(err.message || 'Could not delete graph.');
+      }
+    });
+
+    item.appendChild(openLink);
+    item.appendChild(meta);
+    item.appendChild(downloadBtn);
+    item.appendChild(deleteBtn);
+    list.appendChild(item);
+  });
+
+  wrap.appendChild(list);
+  return wrap;
+}
+
+async function downloadSavedGraphForDataset(ds, graph) {
+  try {
+    const full = ds.text ? ds : await getDataset(ds.id);
+    if (!full) throw new Error('Dataset not found.');
+    await downloadSavedGraphPng(full, graph);
+  } catch (err) {
+    window.alert(err.message || 'Could not download graph.');
+  }
 }
 
 async function loadSummaryForDataset(ds) {
